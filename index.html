@@ -1,86 +1,146 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI 마인드맵 요약기</title>
+    <title>AI Mind Map Generator</title>
     <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
     <style>
+        /* Mac Style Root Variables & Pastel Colors */
         :root {
-            --bg-color: #f5f5f5;
-            --panel-bg: #ffffff;
-            --text-color: #333333;
-            --border-color: #dddddd;
-            --accent-color: #007bff;
+            --bg-color: #F2F2F7; /* Mac System Gray 6 */
+            --panel-bg: rgba(255, 255, 255, 0.8); /* Translucent white */
+            --text-color: #1C1C1E;
+            --border-color: rgba(60, 60, 67, 0.18);
+            --accent-color: #007AFF; /* Mac System Blue */
+            --danger-color: #FF3B30; /* Mac System Red */
+            --radius: 16px;
+            --shadow: 0 4px 20px rgba(0,0,0,0.08);
+            --font-stack: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+
+            /* Pastel Node Colors */
+            --node-root: #FFD1DC; /* Pastel Pink */
+            --node-keyword: #C1E1C1; /* Pastel MintGreen */
+            --node-sentence: #C4DEF6; /* Pastel SkyBlue */
         }
 
-        /* 다크 모드 변수 */
+        /* Dark Mode overrides */
         [data-theme="dark"] {
-            --bg-color: #1e1e1e;
-            --panel-bg: #2d2d2d;
-            --text-color: #ffffff;
-            --border-color: #444444;
-            --accent-color: #4dabf7;
+            --bg-color: #1C1C1E;
+            --panel-bg: rgba(44, 44, 46, 0.8);
+            --text-color: #FFFFFF;
+            --border-color: rgba(84, 84, 88, 0.4);
+            --accent-color: #0A84FF;
+             --shadow: 0 4px 20px rgba(0,0,0,0.3);
         }
 
-        body { font-family: 'Pretendard', 'Malgun Gothic', sans-serif; padding: 20px; background-color: var(--bg-color); color: var(--text-color); transition: 0.3s; }
-        .container { display: flex; gap: 20px; height: 90vh; flex-direction: column; }
+        body {
+            font-family: var(--font-stack);
+            padding: 20px;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            transition: background-color 0.3s ease;
+            margin: 0;
+            box-sizing: border-box;
+            /* Backdrop filter for Mac-like glass effect */
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+
+        .container { display: flex; gap: 20px; height: 92vh; flex-direction: column; }
         
-        @media (min-width: 768px) {
+        @media (min-width: 900px) {
             .container { flex-direction: row; }
-            .input-panel { width: 30%; }
-            .map-panel { width: 70%; }
+            .input-panel { width: 350px; flex-shrink: 0;}
+            .map-panel { flex-grow: 1; }
         }
 
-        .input-panel { background: var(--panel-bg); padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: flex; flex-direction: column; border: 1px solid var(--border-color); }
-        .map-panel { background: var(--panel-bg); border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); position: relative; flex-grow: 1; height: 100%; border: 1px solid var(--border-color); }
+        .panel {
+            background: var(--panel-bg);
+            padding: 24px;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            backdrop-filter: blur(30px);
+            -webkit-backdrop-filter: blur(30px);
+        }
         
-        textarea { width: 100%; height: 200px; margin-bottom: 10px; padding: 10px; background: var(--bg-color); color: var(--text-color); border: 1px solid var(--border-color); border-radius: 5px; resize: none; box-sizing: border-box; }
-        input[type="text"] { width: 100%; padding: 10px; margin-bottom: 10px; background: var(--bg-color); color: var(--text-color); border: 1px solid var(--border-color); border-radius: 5px; box-sizing: border-box; }
+        .header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        h2 { margin: 0; font-weight: 600; font-size: 1.4rem;}
+        .toggle-switch { cursor: pointer; background: none; border: none; font-size: 1.5rem;}
+
+        label { font-weight: 600; font-size: 0.9rem; margin-bottom: 8px; display: block; margin-top: 15px;}
+        textarea { width: 100%; height: 180px; padding: 12px; background: var(--bg-color); color: var(--text-color); border: 1px solid var(--border-color); border-radius: 10px; resize: none; box-sizing: border-box; font-family: inherit; font-size: 0.95rem;}
+        input[type="text"] { width: 100%; padding: 12px; background: var(--bg-color); color: var(--text-color); border: 1px solid var(--border-color); border-radius: 10px; box-sizing: border-box; font-family: inherit;font-size: 0.95rem;}
         
-        .btn-group { display: flex; gap: 5px; margin-bottom: 10px; }
-        button { flex: 1; padding: 10px; background-color: var(--accent-color); color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; transition: 0.2s; }
-        button:hover { opacity: 0.9; }
-        button.secondary { background-color: #6c757d; }
+        /* Buttons */
+        .btn { padding: 10px 16px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.9rem; transition: all 0.2s; font-family: inherit;}
+        .btn-primary { background-color: var(--accent-color); color: white; width: 100%; margin-top: 20px; padding: 14px; font-size: 1rem;}
+        .btn-primary:hover { opacity: 0.9; transform: translateY(-1px);}
+        .btn-secondary { background-color: var(--bg-color); color: var(--text-color); border: 1px solid var(--border-color);}
+        .btn-secondary:hover { background-color: var(--border-color);}
+
+        /* Toolbar areas */
+        .project-toolbar { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;}
+        .project-toolbar .btn { flex: 1; white-space: nowrap;}
         
+        .map-panel { position: relative; padding: 0; overflow: hidden;}
         #mynetwork { width: 100%; height: 100%; }
         
-        .header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-        .toggle-switch { cursor: pointer; font-size: 20px; background: none; border: none; color: var(--text-color); }
+        .map-controls { position: absolute; top: 15px; right: 15px; z-index: 10; display: flex; gap: 8px; background: var(--panel-bg); padding: 8px; border-radius: 12px; box-shadow: var(--shadow); border: 1px solid var(--border-color); flex-wrap: wrap; justify-content: flex-end;}
+        .map-controls .btn { padding: 6px 12px; font-size: 0.8rem;}
+        .export-group { display: flex; gap: 5px; border-left: 2px solid var(--border-color); padding-left: 8px; margin-left: 5px;}
 
-        .controls { position: absolute; top: 10px; right: 10px; z-index: 10; display: flex; gap: 5px; }
-        .controls button { padding: 5px 10px; font-size: 12px; background: rgba(0,0,0,0.5); color: white; backdrop-filter: blur(4px); }
+        .helper-text { font-size: 0.8rem; color: var(--text-color); opacity: 0.7; margin-top: 20px; line-height: 1.4;}
     </style>
 </head>
 <body>
 
     <div class="container">
-        <div class="input-panel">
+        <div class="input-panel panel">
             <div class="header-row">
-                <h2>📝 입력 설정</h2>
-                <button class="toggle-switch" onclick="toggleTheme()">🌓 모드 변경</button>
+                <h2>Settings</h2>
+                <button class="toggle-switch" onclick="toggleTheme()" title="Toggle Dark Mode">🌓</button>
             </div>
             
-            <p>텍스트 입력:</p>
-            <textarea id="inputText" placeholder="여기에 내용을 붙여넣으세요. (설교, 강의, 회의록 등)"></textarea>
+            <div class="project-toolbar">
+                <button class="btn btn-secondary" onclick="saveProject()">💾 Save Project</button>
+                <button class="btn btn-secondary" onclick="document.getElementById('fileLoader').click()">📂 Load Project</button>
+                <input type="file" id="fileLoader" style="display: none;" accept=".json" onchange="loadProject(event)">
+            </div>
+
+            <label for="inputText">Source Text:</label>
+            <textarea id="inputText" placeholder="Paste your text here (sermons, articles, notes)..."></textarea>
             
-            <p>핵심 키워드 (비워두면 AI가 자동 추출):</p>
-            <input type="text" id="keywords" placeholder="예: 교회, 사랑 (비워두면 자동 분석)">
+            <label for="keywords">Keywords (Optional):</label>
+            <input type="text" id="keywords" placeholder="e.g., Love, Grace (Leave empty for auto-analysis)">
             
-            <button onclick="processData()">마인드맵 생성하기 ✨</button>
+            <button class="btn btn-primary" onclick="processData()">✨ Generate Mind Map</button>
             
-            <hr style="width:100%; border: 0.5px solid var(--border-color); margin: 20px 0;">
-            <p style="font-size:12px; opacity: 0.7;">
-                * <b>자동 분석:</b> 키워드 칸을 비우고 생성하면 자주 등장하는 단어를 찾아줍니다.<br>
-                * <b>편집:</b> 노드를 클릭하고 'Edit'를 눌러 수정하거나 삭제할 수 있습니다.
+            <p class="helper-text">
+                * <b>Auto-Save:</b> Your work is automatically saved in this browser.<br>
+                * <b>Editing:</b> Click 'Edit Mode' on the map to re-link nodes. Click a node to edit text.
             </p>
         </div>
 
-        <div class="map-panel">
-            <div class="controls">
-                <button onclick="setLayout('UD')">트리형 (위↓아래)</button>
-                <button onclick="setLayout('LR')">블록형 (좌→우)</button>
-                <button onclick="setLayout('Free')">방사형 (자유)</button>
+        <div class="map-panel panel">
+            <div class="map-controls">
+                <button class="btn btn-secondary" onclick="setLayout('UD')" title="Tree Layout (Up-Down)">🌳 Tree</button>
+                <button class="btn btn-secondary" onclick="setLayout('LR')" title="Block Layout (Left-Right)">🧱 Block</button>
+                <button class="btn btn-secondary" onclick="setLayout('Free')" title="Free Layout">✨ Free</button>
+                
+                <button class="btn btn-secondary" id="editToggleBtn" onclick="toggleEditMode()" title="Enable to add/delete connections">✏️ Edit Mode: OFF</button>
+
+                <div class="export-group">
+                    <button class="btn btn-secondary" onclick="exportMap('png')">📷 PNG</button>
+                    <button class="btn btn-secondary" onclick="exportMap('jpg')">📷 JPG</button>
+                    <button class="btn btn-secondary" onclick="exportMap('pdf')">📄 PDF</button>
+                 </div>
             </div>
             <div id="mynetwork"></div>
         </div>
@@ -89,87 +149,107 @@
     <script>
         let network = null;
         let isDarkMode = false;
+        let isEditMode = false;
+        const rootCSS = document.documentElement.style;
 
-        // 1. 다크 모드 토글 기능
+        // Initialize on load
+        window.onload = function() {
+            // Restore theme preference
+            if (localStorage.getItem('theme') === 'dark') {
+                toggleTheme();
+            }
+            // Attempt to restore previous session data
+            restoreSession();
+        };
+
+        // --- 1. Theme & UI Functions ---
         function toggleTheme() {
             isDarkMode = !isDarkMode;
             document.documentElement.setAttribute('data-theme', isDarkMode ? 'dark' : 'light');
-            if(network) { network.redraw(); } // 색상 반영을 위해 다시 그리기
+            localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
+            if(network) network.redraw();
         }
 
-        // 2. 간단한 한국어 조사 제거 및 빈도 분석 (자동 키워드 추출용)
+        function toggleEditMode() {
+            isEditMode = !isEditMode;
+            const btn = document.getElementById('editToggleBtn');
+            if(!network) return;
+
+            if (isEditMode) {
+                btn.innerText = "✏️ Edit Mode: ON";
+                btn.style.backgroundColor = "var(--accent-color)";
+                btn.style.color = "white";
+                // Enable edge addition and deletion for re-linking blocks
+                network.setOptions({ manipulation: { enabled: true, addEdge: true, deleteEdge: true, deleteNode: true }});
+                network.addEdgeMode(); // Start in "add edge" mode immediately for convenience
+            } else {
+                btn.innerText = "✏️ Edit Mode: OFF";
+                btn.style.backgroundColor = "";
+                btn.style.color = "";
+                // Disable structural editing, keep node editing
+                network.setOptions({ manipulation: { enabled: true, addEdge: false, deleteEdge: false, deleteNode: true }, interactions: { hover: true } });
+                network.disableEditMode();
+            }
+        }
+
+        // --- 2. Data Processing (Auto-Analysis) ---
         function extractKeywords(text) {
-            // 제거할 조사들 (불용어)
-            const stopWords = ['은', '는', '이', '가', '을', '를', '의', '에', '와', '과', '도', '로', '으로', '서', '에서', '하다', '있다', '없다', '것', '수', '그', '이', '저', '들', '한', '합니다', '했습니다', '입니다'];
-            
-            // 단어 쪼개기
-            const words = text.replace(/[.,?!""''\(\)\r\n]/g, " ").split(/\s+/);
+            // Korean Stopwords
+            const stopWords = ['은', '는', '이', '가', '을', '를', '의', '에', '와', '과', '도', '로', '으로', '서', '에서', '하다', '있다', '없다', '것', '수', '그', '이', '저', '들', '한', '합니다', '했습니다', '입니다', '그리고', '그러나', '그런데', '그래서'];
+            const words = text.replace(/[.,?!""''\(\)\r\n\[\]]/g, " ").split(/\s+/);
             const wordCounts = {};
 
             words.forEach(word => {
-                if (word.length >= 2) { // 2글자 이상만
+                if (word.length >= 2) {
                     let cleanWord = word;
-                    // 끝에 붙은 조사 제거 시도
-                    stopWords.forEach(sw => {
-                        if (cleanWord.endsWith(sw)) {
-                            cleanWord = cleanWord.slice(0, -sw.length);
-                        }
-                    });
-                    
+                    stopWords.forEach(sw => { if (cleanWord.endsWith(sw)) cleanWord = cleanWord.slice(0, -sw.length); });
                     if (cleanWord.length >= 2 && !stopWords.includes(cleanWord)) {
                         wordCounts[cleanWord] = (wordCounts[cleanWord] || 0) + 1;
                     }
                 }
             });
-
-            // 많이 나온 순서대로 정렬해서 상위 5개 뽑기
-            return Object.entries(wordCounts)
-                .sort((a, b) => b[1] - a[1])
-                .slice(0, 5)
-                .map(entry => entry[0]);
+            return Object.entries(wordCounts).sort((a, b) => b[1] - a[1]).slice(0, 6).map(entry => entry[0]);
         }
 
-        // 3. 데이터 처리 및 마인드맵 생성
         function processData() {
             const text = document.getElementById('inputText').value;
             let keywordsRaw = document.getElementById('keywords').value;
 
-            if(!text) { alert("텍스트를 입력해주세요!"); return; }
+            if(!text) { alert("Please input some text first."); return; }
 
             let keywordList = [];
-
-            // 키워드가 없으면 자동 추출
             if (!keywordsRaw.trim()) {
                 keywordList = extractKeywords(text);
-                if (keywordList.length === 0) {
-                    alert("분석할 만한 핵심 단어를 찾지 못했습니다. 내용을 더 입력하거나 키워드를 직접 적어주세요.");
-                    return;
-                }
-                alert("자동 추출된 키워드: " + keywordList.join(", "));
+                if (keywordList.length === 0) { alert("Could not auto-detect keywords. Please enter them manually."); return; }
             } else {
                 keywordList = keywordsRaw.split(',').map(k => k.trim()).filter(k => k.length > 0);
             }
 
-            // 노드와 연결선 생성
-            let nodes = [{id: 1, label: '중심 주제', color: '#FF9800', shape: 'box', font: {size: 20, color: '#fff'}}];
+            // Get pastel colors from CSS variables
+            const style = getComputedStyle(document.documentElement);
+            const colRoot = style.getPropertyValue('--node-root').trim();
+            const colKw = style.getPropertyValue('--node-keyword').trim();
+            const colSent = style.getPropertyValue('--node-sentence').trim();
+
+            let nodes = [{id: 1, label: 'Main Topic', color: colRoot, shape: 'box', font: {size: 24, color: '#333'}}];
             let edges = [];
             let nodeId = 2;
 
-            const sentences = text.split(/[.?!]\s+/); // 문장 단위 분리 강화
+            // Split by ending punctuation, keep punctuation, then clean up
+            const sentences = text.match(/[^.?!]+[.?!]+["']?|[^.?!]+$/g) || [text];
 
             keywordList.forEach(kw => {
-                // 키워드 노드 (주제)
                 const kwId = nodeId++;
-                nodes.push({id: kwId, label: kw, color: '#4CAF50', shape: 'ellipse', font: {color: '#fff'}});
+                nodes.push({id: kwId, label: kw, color: colKw, shape: 'ellipse', font: {size: 18, color: '#333'}});
                 edges.push({from: 1, to: kwId});
 
-                // 해당 키워드가 들어간 문장 연결
                 let count = 0;
                 sentences.forEach(sentence => {
-                    if (sentence.includes(kw) && count < 3) { // 너무 많으면 복잡하니까 키워드당 3개만
-                        const cleanSentence = sentence.trim();
-                        if (cleanSentence.length > 5) { // 너무 짧은 문장 제외
-                            nodes.push({id: nodeId, label: cleanSentence.substring(0, 20) + "...", title: cleanSentence, color: '#E1F5FE', shape: 'box'});
+                    if (sentence.includes(kw) && count < 4) {
+                        let clean = sentence.trim().replace(/[\r\n]+/g, " ");
+                        if (clean.length > 10) {
+                            let labelStr = clean.length > 30 ? clean.substring(0, 30) + "..." : clean;
+                            nodes.push({id: nodeId, label: labelStr, title: clean, color: colSent, shape: 'box', widthConstraint: { maximum: 250 }});
                             edges.push({from: kwId, to: nodeId});
                             nodeId++;
                             count++;
@@ -177,73 +257,157 @@
                     }
                 });
             });
-
             drawMap(nodes, edges);
+            saveSession(); // Auto-save after generation
         }
 
-        // 4. 마인드맵 그리기 (Vis.js)
-        function drawMap(nodes, edges) {
+        // --- 3. Vis.js Map Drawing ---
+        function drawMap(nodesData, edgesData) {
             const container = document.getElementById('mynetwork');
             const data = {
-                nodes: new vis.DataSet(nodes),
-                edges: new vis.DataSet(edges)
+                nodes: new vis.DataSet(nodesData),
+                edges: new vis.DataSet(edgesData)
             };
             
             const options = {
-                nodes: {
-                    shape: 'box',
-                    margin: 10,
-                    widthConstraint: { maximum: 200 }
-                },
-                layout: {
-                    hierarchical: {
-                        enabled: true,
-                        direction: "UD", // 기본 트리형
-                        sortMethod: "hubsize",
-                        levelSeparation: 150,
-                        nodeSpacing: 150
-                    }
-                },
+                nodes: { shape: 'box', margin: 12, borderWidth: 0, shadow: true, font: { face: '-apple-system, sans-serif', color: '#333' } },
+                edges: { color: { color: '#B0B0B0', highlight: '#007AFF' }, width: 2, smooth: { type: 'continuous' } },
+                layout: { hierarchical: { enabled: true, direction: "UD", sortMethod: "hubsize", levelSeparation: 180, nodeSpacing: 200 } },
                 physics: false,
+                interaction: { hover: true, multiselect: true },
                 manipulation: { 
-                    enabled: true,
-                    initiallyActive: true,
-                    addNode: true,
-                    addEdge: true,
-                    editNode: true,
-                    deleteNode: true
+                    enabled: true, 
+                    addEdge: false, // Disabled by default, enabled via "Edit Mode" btn
+                    editEdge: false,
+                    deleteNode: true,
+                    deleteEdge: false
                 }
             };
 
             network = new vis.Network(container, data, options);
+            // Listener for auto-save on manual edits
+            network.on("dragEnd", saveSession);
+            network.on("click", saveSession); 
+            
+            // Reset Edit Mode button
+            isEditMode = true; toggleEditMode(); 
         }
 
-        // 5. 레이아웃 변경 함수
         function setLayout(type) {
             if(!network) return;
-
+            let options = { physics: false };
             if (type === 'UD') {
-                // 트리형 (위에서 아래로)
-                network.setOptions({
-                    layout: { hierarchical: { enabled: true, direction: "UD" } },
-                    physics: false
-                });
+                options.layout = { hierarchical: { enabled: true, direction: "UD", levelSeparation: 180, nodeSpacing: 200 } };
             } else if (type === 'LR') {
-                // 블록형 (좌에서 우로 흐름)
-                network.setOptions({
-                    layout: { hierarchical: { enabled: true, direction: "LR" } },
-                    physics: false
-                });
+                options.layout = { hierarchical: { enabled: true, direction: "LR", levelSeparation: 250, nodeSpacing: 150 } };
             } else {
-                // 방사형 (자유 배치)
-                network.setOptions({
-                    layout: { hierarchical: { enabled: false } },
-                    physics: { 
-                        enabled: true, 
-                        solver: 'forceAtlas2Based',
-                        stabilization: { iterations: 100 } 
+                options.layout = { hierarchical: { enabled: false } };
+                options.physics = { enabled: true, solver: 'forceAtlas2Based', stabilization: { iterations: 200 } };
+            }
+            network.setOptions(options);
+            if(type !== 'Free') network.fit();
+            saveSession();
+        }
+
+        // --- 4. Save/Load & Export Functions ---
+
+        // A. Auto-Save (Session Storage)
+        function saveSession() {
+            if (!network) return;
+            const sessionData = {
+                text: document.getElementById('inputText').value,
+                keywords: document.getElementById('keywords').value,
+                nodes: network.body.data.nodes.get(),
+                edges: network.body.data.edges.get()
+            };
+            localStorage.setItem('mindMapSession', JSON.stringify(sessionData));
+        }
+
+        function restoreSession() {
+            const saved = localStorage.getItem('mindMapSession');
+            if (saved) {
+                try {
+                    const data = JSON.parse(saved);
+                    document.getElementById('inputText').value = data.text || "";
+                    document.getElementById('keywords').value = data.keywords || "";
+                    if (data.nodes && data.nodes.length > 0) {
+                        drawMap(data.nodes, data.edges);
                     }
-                });
+                } catch (e) { console.error("Failed to restore session", e); }
+            }
+        }
+
+        // B. Project File Save/Load (Manual)
+        function saveProject() {
+            if (!network) { alert("No mind map to save yet."); return; }
+            const projectData = {
+                timestamp: new Date().toISOString(),
+                text: document.getElementById('inputText').value,
+                keywords: document.getElementById('keywords').value,
+                nodes: network.body.data.nodes.get(),
+                edges: network.body.data.edges.get()
+            };
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(projectData, null, 2));
+            const downloadAnchorNode = document.createElement('a');
+            downloadAnchorNode.setAttribute("href", dataStr);
+            downloadAnchorNode.setAttribute("download", "mindmap_project.json");
+            document.body.appendChild(downloadAnchorNode);
+            downloadAnchorNode.click();
+            downloadAnchorNode.remove();
+        }
+
+        function loadProject(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    document.getElementById('inputText').value = data.text || "";
+                    document.getElementById('keywords').value = data.keywords || "";
+                    drawMap(data.nodes, data.edges);
+                    alert("Project loaded successfully!");
+                } catch (err) {
+                    alert("Failed to load project file. It might be corrupted.");
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = ''; // reset file input
+        }
+
+        // C. Export Images/PDF
+        async function exportMap(type) {
+            if (!network) return;
+            // Temporarily fit map and set background for capture
+            network.fit({animation: false});
+            const mapContainer = document.getElementById('mynetwork');
+            const originalBg = mapContainer.style.backgroundColor;
+            // Set background based on theme for clear capture
+            mapContainer.style.backgroundColor = isDarkMode ? '#1C1C1E' : '#F2F2F7'; 
+
+            try {
+                const canvas = await html2canvas(mapContainer, { scale: 2, useCORS: true, logging: false });
+                
+                if (type === 'png' || type === 'jpg') {
+                    const link = document.createElement('a');
+                    link.download = `mindmap_export.${type}`;
+                    link.href = canvas.toDataURL(`image/${type === 'jpg' ? 'jpeg' : 'png'}`, 0.9);
+                    link.click();
+                } else if (type === 'pdf') {
+                    const imgData = canvas.toDataURL('image/png');
+                    // A4 Landscape orientation
+                    const pdf = new jspdf.jsPDF({ orientation: 'landscape' });
+                    const imgProps = pdf.getImageProperties(imgData);
+                    const pdfWidth = pdf.internal.pageSize.getWidth();
+                    const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+                    pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+                    pdf.save('mindmap_export.pdf');
+                }
+            } catch (err) {
+                console.error("Export failed:", err);
+                alert("Failed to export. Please try again.");
+            } finally {
+                mapContainer.style.backgroundColor = originalBg; // Restore background
             }
         }
     </script>
