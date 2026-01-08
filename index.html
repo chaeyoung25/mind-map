@@ -6,7 +6,24 @@
     <title>AI 마인드맵 요약기</title>
     <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
     <style>
-        body { font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; padding: 20px; background-color: #f5f5f5; }
+        :root {
+            --bg-color: #f5f5f5;
+            --panel-bg: #ffffff;
+            --text-color: #333333;
+            --border-color: #dddddd;
+            --accent-color: #007bff;
+        }
+
+        /* 다크 모드 변수 */
+        [data-theme="dark"] {
+            --bg-color: #1e1e1e;
+            --panel-bg: #2d2d2d;
+            --text-color: #ffffff;
+            --border-color: #444444;
+            --accent-color: #4dabf7;
+        }
+
+        body { font-family: 'Pretendard', 'Malgun Gothic', sans-serif; padding: 20px; background-color: var(--bg-color); color: var(--text-color); transition: 0.3s; }
         .container { display: flex; gap: 20px; height: 90vh; flex-direction: column; }
         
         @media (min-width: 768px) {
@@ -15,40 +32,55 @@
             .map-panel { width: 70%; }
         }
 
-        .input-panel { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); display: flex; flex-direction: column; }
-        .map-panel { background: white; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); position: relative; flex-grow: 1; height: 100%; }
+        .input-panel { background: var(--panel-bg); padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: flex; flex-direction: column; border: 1px solid var(--border-color); }
+        .map-panel { background: var(--panel-bg); border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); position: relative; flex-grow: 1; height: 100%; border: 1px solid var(--border-color); }
         
-        textarea { width: 100%; height: 150px; margin-bottom: 10px; padding: 10px; border: 1px solid #ddd; border-radius: 5px; resize: none; box-sizing: border-box;}
-        input[type="text"] { width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box;}
-        button { padding: 10px; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; margin-bottom: 5px;}
-        button:hover { background-color: #0056b3; }
+        textarea { width: 100%; height: 200px; margin-bottom: 10px; padding: 10px; background: var(--bg-color); color: var(--text-color); border: 1px solid var(--border-color); border-radius: 5px; resize: none; box-sizing: border-box; }
+        input[type="text"] { width: 100%; padding: 10px; margin-bottom: 10px; background: var(--bg-color); color: var(--text-color); border: 1px solid var(--border-color); border-radius: 5px; box-sizing: border-box; }
         
-        #mynetwork { width: 100%; height: 100%; min-height: 400px; }
+        .btn-group { display: flex; gap: 5px; margin-bottom: 10px; }
+        button { flex: 1; padding: 10px; background-color: var(--accent-color); color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        button:hover { opacity: 0.9; }
+        button.secondary { background-color: #6c757d; }
         
-        .controls { position: absolute; top: 10px; right: 10px; z-index: 10; background: rgba(255,255,255,0.8); padding: 5px; border-radius: 5px; }
-        .btn-small { padding: 5px 10px; font-size: 12px; background-color: #6c757d; }
+        #mynetwork { width: 100%; height: 100%; }
+        
+        .header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .toggle-switch { cursor: pointer; font-size: 20px; background: none; border: none; color: var(--text-color); }
+
+        .controls { position: absolute; top: 10px; right: 10px; z-index: 10; display: flex; gap: 5px; }
+        .controls button { padding: 5px 10px; font-size: 12px; background: rgba(0,0,0,0.5); color: white; backdrop-filter: blur(4px); }
     </style>
 </head>
 <body>
 
     <div class="container">
         <div class="input-panel">
-            <h2>📝 내용 입력</h2>
-            <p>받아쓰기 텍스트:</p>
-            <textarea id="inputText" placeholder="여기에 텍스트를 붙여넣으세요..."></textarea>
+            <div class="header-row">
+                <h2>📝 입력 설정</h2>
+                <button class="toggle-switch" onclick="toggleTheme()">🌓 모드 변경</button>
+            </div>
             
-            <p>핵심 키워드 (쉼표 구분):</p>
-            <input type="text" id="keywords" placeholder="예: 예수님, 사랑, 구원">
+            <p>텍스트 입력:</p>
+            <textarea id="inputText" placeholder="여기에 내용을 붙여넣으세요. (설교, 강의, 회의록 등)"></textarea>
             
-            <button onclick="processData()">마인드맵 생성하기</button>
-            <hr>
-            <p style="font-size:12px; color:#666;">* 사용법: 드래그로 이동, 클릭 후 편집</p>
+            <p>핵심 키워드 (비워두면 AI가 자동 추출):</p>
+            <input type="text" id="keywords" placeholder="예: 교회, 사랑 (비워두면 자동 분석)">
+            
+            <button onclick="processData()">마인드맵 생성하기 ✨</button>
+            
+            <hr style="width:100%; border: 0.5px solid var(--border-color); margin: 20px 0;">
+            <p style="font-size:12px; opacity: 0.7;">
+                * <b>자동 분석:</b> 키워드 칸을 비우고 생성하면 자주 등장하는 단어를 찾아줍니다.<br>
+                * <b>편집:</b> 노드를 클릭하고 'Edit'를 눌러 수정하거나 삭제할 수 있습니다.
+            </p>
         </div>
 
         <div class="map-panel">
             <div class="controls">
-                <button class="btn-small" onclick="setLayout('UD')">트리형</button>
-                <button class="btn-small" onclick="setLayout('Free')">방사형</button>
+                <button onclick="setLayout('UD')">트리형 (위↓아래)</button>
+                <button onclick="setLayout('LR')">블록형 (좌→우)</button>
+                <button onclick="setLayout('Free')">방사형 (자유)</button>
             </div>
             <div id="mynetwork"></div>
         </div>
@@ -56,53 +88,100 @@
 
     <script>
         let network = null;
+        let isDarkMode = false;
 
-        // 파이썬이 하던 일을 자바스크립트가 직접 합니다!
+        // 1. 다크 모드 토글 기능
+        function toggleTheme() {
+            isDarkMode = !isDarkMode;
+            document.documentElement.setAttribute('data-theme', isDarkMode ? 'dark' : 'light');
+            if(network) { network.redraw(); } // 색상 반영을 위해 다시 그리기
+        }
+
+        // 2. 간단한 한국어 조사 제거 및 빈도 분석 (자동 키워드 추출용)
+        function extractKeywords(text) {
+            // 제거할 조사들 (불용어)
+            const stopWords = ['은', '는', '이', '가', '을', '를', '의', '에', '와', '과', '도', '로', '으로', '서', '에서', '하다', '있다', '없다', '것', '수', '그', '이', '저', '들', '한', '합니다', '했습니다', '입니다'];
+            
+            // 단어 쪼개기
+            const words = text.replace(/[.,?!""''\(\)\r\n]/g, " ").split(/\s+/);
+            const wordCounts = {};
+
+            words.forEach(word => {
+                if (word.length >= 2) { // 2글자 이상만
+                    let cleanWord = word;
+                    // 끝에 붙은 조사 제거 시도
+                    stopWords.forEach(sw => {
+                        if (cleanWord.endsWith(sw)) {
+                            cleanWord = cleanWord.slice(0, -sw.length);
+                        }
+                    });
+                    
+                    if (cleanWord.length >= 2 && !stopWords.includes(cleanWord)) {
+                        wordCounts[cleanWord] = (wordCounts[cleanWord] || 0) + 1;
+                    }
+                }
+            });
+
+            // 많이 나온 순서대로 정렬해서 상위 5개 뽑기
+            return Object.entries(wordCounts)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 5)
+                .map(entry => entry[0]);
+        }
+
+        // 3. 데이터 처리 및 마인드맵 생성
         function processData() {
             const text = document.getElementById('inputText').value;
-            const keywordsRaw = document.getElementById('keywords').value;
+            let keywordsRaw = document.getElementById('keywords').value;
 
             if(!text) { alert("텍스트를 입력해주세요!"); return; }
 
-            // 1. 키워드 정리
-            const keywordList = keywordsRaw.split(',').map(k => k.trim()).filter(k => k.length > 0);
-            
-            // 2. 데이터 준비
-            let nodes = [{id: 1, label: '핵심 요약', color: '#FF9800', shape: 'box'}];
+            let keywordList = [];
+
+            // 키워드가 없으면 자동 추출
+            if (!keywordsRaw.trim()) {
+                keywordList = extractKeywords(text);
+                if (keywordList.length === 0) {
+                    alert("분석할 만한 핵심 단어를 찾지 못했습니다. 내용을 더 입력하거나 키워드를 직접 적어주세요.");
+                    return;
+                }
+                alert("자동 추출된 키워드: " + keywordList.join(", "));
+            } else {
+                keywordList = keywordsRaw.split(',').map(k => k.trim()).filter(k => k.length > 0);
+            }
+
+            // 노드와 연결선 생성
+            let nodes = [{id: 1, label: '중심 주제', color: '#FF9800', shape: 'box', font: {size: 20, color: '#fff'}}];
             let edges = [];
             let nodeId = 2;
 
-            // 3. 문장 나누기
-            const sentences = text.split('.');
+            const sentences = text.split(/[.?!]\s+/); // 문장 단위 분리 강화
 
-            // 4. 연결 로직
-            if (keywordList.length === 0) {
-                nodes.push({id: 999, label: '키워드를 입력해주세요!', color: '#ccc'});
-                edges.push({from: 1, to: 999});
-            } else {
-                keywordList.forEach(kw => {
-                    // 키워드 노드
-                    const kwId = nodeId++;
-                    nodes.push({id: kwId, label: kw, color: '#4CAF50', shape: 'ellipse'});
-                    edges.push({from: 1, to: kwId});
+            keywordList.forEach(kw => {
+                // 키워드 노드 (주제)
+                const kwId = nodeId++;
+                nodes.push({id: kwId, label: kw, color: '#4CAF50', shape: 'ellipse', font: {color: '#fff'}});
+                edges.push({from: 1, to: kwId});
 
-                    // 문장 매칭
-                    sentences.forEach(sentence => {
-                        if (sentence.includes(kw)) {
-                            const cleanSentence = sentence.trim();
-                            if (cleanSentence.length > 0) {
-                                nodes.push({id: nodeId, label: cleanSentence, color: '#E1F5FE', shape: 'box'});
-                                edges.push({from: kwId, to: nodeId});
-                                nodeId++;
-                            }
+                // 해당 키워드가 들어간 문장 연결
+                let count = 0;
+                sentences.forEach(sentence => {
+                    if (sentence.includes(kw) && count < 3) { // 너무 많으면 복잡하니까 키워드당 3개만
+                        const cleanSentence = sentence.trim();
+                        if (cleanSentence.length > 5) { // 너무 짧은 문장 제외
+                            nodes.push({id: nodeId, label: cleanSentence.substring(0, 20) + "...", title: cleanSentence, color: '#E1F5FE', shape: 'box'});
+                            edges.push({from: kwId, to: nodeId});
+                            nodeId++;
+                            count++;
                         }
-                    });
+                    }
                 });
-            }
+            });
 
             drawMap(nodes, edges);
         }
 
+        // 4. 마인드맵 그리기 (Vis.js)
         function drawMap(nodes, edges) {
             const container = document.getElementById('mynetwork');
             const data = {
@@ -111,32 +190,59 @@
             };
             
             const options = {
+                nodes: {
+                    shape: 'box',
+                    margin: 10,
+                    widthConstraint: { maximum: 200 }
+                },
                 layout: {
                     hierarchical: {
                         enabled: true,
-                        direction: "UD",
-                        sortMethod: "directed",
-                        levelSeparation: 150
+                        direction: "UD", // 기본 트리형
+                        sortMethod: "hubsize",
+                        levelSeparation: 150,
+                        nodeSpacing: 150
                     }
                 },
                 physics: false,
-                manipulation: { enabled: true }
+                manipulation: { 
+                    enabled: true,
+                    initiallyActive: true,
+                    addNode: true,
+                    addEdge: true,
+                    editNode: true,
+                    deleteNode: true
+                }
             };
 
             network = new vis.Network(container, data, options);
         }
 
+        // 5. 레이아웃 변경 함수
         function setLayout(type) {
             if(!network) return;
+
             if (type === 'UD') {
+                // 트리형 (위에서 아래로)
                 network.setOptions({
                     layout: { hierarchical: { enabled: true, direction: "UD" } },
                     physics: false
                 });
+            } else if (type === 'LR') {
+                // 블록형 (좌에서 우로 흐름)
+                network.setOptions({
+                    layout: { hierarchical: { enabled: true, direction: "LR" } },
+                    physics: false
+                });
             } else {
+                // 방사형 (자유 배치)
                 network.setOptions({
                     layout: { hierarchical: { enabled: false } },
-                    physics: { enabled: true, solver: 'forceAtlas2Based' }
+                    physics: { 
+                        enabled: true, 
+                        solver: 'forceAtlas2Based',
+                        stabilization: { iterations: 100 } 
+                    }
                 });
             }
         }
