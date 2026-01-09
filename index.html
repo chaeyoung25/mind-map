@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Mind Map (v1.6)</title>
+    <title>AI Mind Map (v1.7)</title>
     <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -171,7 +171,7 @@
                     * <b>Click Node:</b> Open Menu<br>
                     * <b>Auto-Save:</b> Enabled
                 </p>
-                <div class="version-tag">Version 1.6</div>
+                <div class="version-tag">Version 1.7</div>
             </div>
         </div>
 
@@ -273,7 +273,6 @@
             }
 
             const style = getComputedStyle(document.documentElement);
-            // Use trim() to clean up color strings
             const colRoot = style.getPropertyValue('--node-root').trim();
             const colKw = style.getPropertyValue('--node-keyword').trim();
             const colSent = style.getPropertyValue('--node-sentence').trim();
@@ -319,7 +318,6 @@
 
             network = new vis.Network(container, data, options);
 
-            // Events
             network.on("selectNode", () => {
                 if(currentAction) return;
                 document.getElementById('contextToolbar').style.display = 'flex';
@@ -387,7 +385,7 @@
             if(incoming.length > 0) {
                 saveHistory();
                 network.body.data.edges.remove(incoming.map(e => e.id));
-                showStatus("Node unlinked from parent");
+                showStatus("Node unlinked");
                 saveSession();
             } else {
                 showStatus("No parent link found");
@@ -448,14 +446,35 @@
         }
 
         // --- 4. Utilities ---
+        // 🔥 Layout Function (Updated for v1.7)
         function setLayout(t) {
             saveHistory();
             if(!network) return;
-            let o = { physics: false };
-            if(t==='UD') o.layout = { hierarchical: { enabled: true, direction: "UD", levelSeparation: 150 } };
-            else if(t==='LR') o.layout = { hierarchical: { enabled: true, direction: "LR", levelSeparation: 200 } };
-            else { o.layout = { hierarchical: { enabled: false } }; o.physics = { enabled: true }; }
-            network.setOptions(o); network.fit();
+            
+            let o = { physics: false }; // 기본적으로 물리는 끕니다.
+
+            if(t==='UD') {
+                o.layout = { hierarchical: { enabled: true, direction: "UD", levelSeparation: 150 } };
+            } else if(t==='LR') {
+                o.layout = { hierarchical: { enabled: true, direction: "LR", levelSeparation: 200 } };
+            } else {
+                // Free Mode: Enable physics to spread, then freeze
+                o.layout = { hierarchical: { enabled: false } };
+                o.physics = { 
+                    enabled: true, 
+                    solver: 'forceAtlas2Based',
+                    stabilization: { iterations: 200 } 
+                };
+                
+                // 🔥 Auto-freeze logic
+                network.once("stabilized", function() {
+                    network.setOptions({ physics: false });
+                });
+            }
+            network.setOptions(o);
+            
+            // Free 모드일 때는 fit()만 하고, stabilization은 setOptions가 알아서 수행함
+            if (t !== 'Free') network.fit();
         }
 
         function toggleTheme() {
@@ -473,18 +492,18 @@
         function saveSession() {
             if(!network) return;
             const d = { text: document.getElementById('inputText').value, nodes: network.body.data.nodes.get(), edges: network.body.data.edges.get(), initialState: initialState };
-            localStorage.setItem('mindMapSessionV1_6', JSON.stringify(d));
+            localStorage.setItem('mindMapSessionV1_7', JSON.stringify(d));
         }
 
         function restoreSession() {
-            const s = localStorage.getItem('mindMapSessionV1_6');
+            const s = localStorage.getItem('mindMapSessionV1_7');
             if(s) { try { const d = JSON.parse(s); document.getElementById('inputText').value = d.text||""; initialState = d.initialState; drawMap(d.nodes, d.edges); } catch(e){} }
         }
 
         function saveProject() { if(!network) return; const d = { nodes: network.body.data.nodes.get(), edges: network.body.data.edges.get() }; const b = new Blob([JSON.stringify(d)], {type:"text/json"}); const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = "mindmap.json"; a.click(); }
         function loadProject(e) { const r = new FileReader(); r.onload = function(evt) { const d = JSON.parse(evt.target.result); drawMap(d.nodes, d.edges); }; r.readAsText(e.target.files[0]); }
         async function exportMap(t) { const el = document.getElementById('mynetwork'); const c = await html2canvas(el); const l = document.createElement('a'); l.download = 'mindmap.png'; l.href = c.toDataURL(); l.click(); }
-        async function exportWord() { const el = document.getElementById('mynetwork'); const bg = el.style.backgroundColor; el.style.backgroundColor = "#fff"; const c = await html2canvas(el); const d = c.toDataURL('image/png'); el.style.backgroundColor = bg; const h = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Export</title></head><body><h1>Mind Map</h1><br><img src="${d}" style="width:100%"><br><p>v1.6</p></body></html>`; const b = new Blob(['\ufeff', h], { type: 'application/msword' }); const l = document.createElement('a'); l.href = URL.createObjectURL(b); l.download = 'mindmap.doc'; l.click(); }
+        async function exportWord() { const el = document.getElementById('mynetwork'); const bg = el.style.backgroundColor; el.style.backgroundColor = "#fff"; const c = await html2canvas(el); const d = c.toDataURL('image/png'); el.style.backgroundColor = bg; const h = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Export</title></head><body><h1>Mind Map</h1><br><img src="${d}" style="width:100%"><br><p>v1.7</p></body></html>`; const b = new Blob(['\ufeff', h], { type: 'application/msword' }); const l = document.createElement('a'); l.href = URL.createObjectURL(b); l.download = 'mindmap.doc'; l.click(); }
     </script>
 </body>
 </html>
