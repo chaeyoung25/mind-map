@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Mind Map (v5.5 Stable & Edit Buttons)</title>
+    <title>AI Mind Map (v5.6 Perfect Layout)</title>
     <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     
     <style>
-        /* --- CSS Styles (Theme, Layout, Controls) --- */
+        /* --- Mac Style Pastel Theme --- */
         :root {
             --bg-color: #F5F5F7;
             --panel-bg: rgba(255, 255, 255, 0.98);
@@ -20,6 +20,7 @@
             --selection-blue: rgba(0, 122, 255, 0.15);
             --selection-border: #007AFF;
         }
+
         [data-theme="dark"] {
             --bg-color: #191919;
             --panel-bg: rgba(40, 40, 40, 0.95);
@@ -27,25 +28,30 @@
             --border-color: rgba(255, 255, 255, 0.15);
             --accent-color: #0A84FF;
         }
+
         body { 
             font-family: -apple-system, BlinkMacSystemFont, "Pretendard", sans-serif; 
             padding: 20px; background-color: var(--bg-color); color: var(--text-color); margin: 0; height: 100vh; 
             box-sizing: border-box; transition: background-color 0.3s ease; backdrop-filter: blur(20px);
             overflow: hidden; user-select: none; 
         }
+
         .container { display: flex; gap: 20px; height: 92vh; flex-direction: column; }
         @media (min-width: 900px) { 
             .container { flex-direction: row; } 
             .input-panel { width: 340px; flex-shrink: 0; } 
             .map-panel { flex-grow: 1; } 
         }
+
         .panel { 
             background: var(--panel-bg); padding: 20px; border-radius: 12px; 
             box-shadow: 0 4px 24px rgba(0,0,0,0.08); border: 1px solid var(--border-color); 
             display: flex; flex-direction: column; position: relative; 
             backdrop-filter: blur(20px);
         }
+        
         h2 { margin: 0 0 15px 0; font-size: 1.1rem; font-weight: 600; display: flex; justify-content: space-between; align-items: center; }
+        
         textarea { 
             width: 100%; height: 200px; padding: 14px; border-radius: 10px; border: 1px solid var(--border-color); 
             resize: none; font-family: inherit; margin-bottom: 10px; background: var(--bg-color); 
@@ -53,6 +59,7 @@
             user-select: text; 
         }
         textarea:focus { border-color: var(--accent-color); }
+
         .btn { padding: 12px; border-radius: 10px; border: none; cursor: pointer; font-weight: 600; font-size: 0.9rem; transition: all 0.2s; }
         .btn-primary { background-color: var(--accent-color); color: white; width: 100%; margin-top: 10px; box-shadow: 0 2px 8px rgba(0,122,255,0.25); }
         .btn-primary:hover { transform: translateY(-1px); opacity: 0.9; }
@@ -60,7 +67,9 @@
         .btn-secondary:hover { background-color: rgba(120, 120, 128, 0.2); }
         .btn-toolbar { display: flex; gap: 6px; margin-bottom: 15px; }
         .btn-toolbar .btn { flex: 1; }
+
         #mynetwork { width: 100%; height: 100%; outline: none; cursor: default; }
+        
         #selectionBox {
             position: absolute;
             background-color: var(--selection-blue);
@@ -69,30 +78,36 @@
             z-index: 10000;
             pointer-events: none;
         }
+
         .map-controls { 
             position: absolute; top: 16px; right: 16px; left: 16px; 
             display: flex; justify-content: space-between; pointer-events: none; z-index: 10;
         }
+        
         .control-group { 
             pointer-events: auto; display: flex; gap: 5px; background: var(--panel-bg); 
             padding: 5px; border-radius: 10px; border: 1px solid var(--border-color); 
             box-shadow: 0 4px 15px rgba(0,0,0,0.05); flex-wrap: wrap; align-items: center;
         }
+
         .control-group button { 
             padding: 6px 10px; font-size: 0.75rem; background: transparent; border: none; 
             border-radius: 6px; cursor: pointer; color: var(--text-color); transition: 0.2s; 
             display: flex; align-items: center; gap: 4px; font-weight: 500;
         }
         .control-group button:hover { background-color: rgba(0,0,0,0.05); }
+        
         .btn-add { color: var(--accent-color) !important; }
         .btn-unlink { color: var(--text-color) !important; opacity: 0.8; }
         .btn-delete { color: var(--danger-color) !important; }
+
         #statusMessage {
             position: absolute; top: 70px; left: 50%; transform: translateX(-50%);
             background: rgba(0, 0, 0, 0.75); color: white; padding: 8px 20px; border-radius: 30px;
             font-size: 0.85rem; font-weight: 500; box-shadow: 0 4px 20px rgba(0,0,0,0.15);
             pointer-events: none; opacity: 0; transition: opacity 0.3s; z-index: 100; backdrop-filter: blur(10px);
         }
+
         .version-tag { font-size: 0.7rem; color: var(--text-color); opacity: 0.4; margin-top: 15px; text-align: right; }
         #contextToolbar, #edgeToolbar { display: none; }
     </style>
@@ -124,10 +139,10 @@
             <div style="margin-top:auto;">
                 <p style="font-size:0.75rem; opacity:0.6; line-height:1.5; margin-bottom:0;">
                     * <b>Multi-Select:</b> Ctrl + Drag<br>
-                    * <b>Layouts:</b> Fixed switching issues.<br>
-                    * <b>Edit:</b> Cut/Copy/Paste buttons added.
+                    * <b>Layouts:</b> Reset Logic Applied.<br>
+                    * <b>Edit:</b> Cut/Copy/Paste ready.
                 </p>
-                <div class="version-tag">Version 5.5</div>
+                <div class="version-tag">Version 5.6 (Final Layout Fix)</div>
             </div>
         </div>
 
@@ -137,14 +152,14 @@
             <div class="map-controls">
                 <div style="display:flex; gap:10px;">
                     <div id="contextToolbar" class="control-group" style="border-color: var(--accent-color);">
-                        <button class="btn-add" onclick="addChildNode()" title="Add Child">➕ Add</button>
-                        <button onclick="cutSelected()" title="Cut Node">✂️ Cut</button>
-                        <button onclick="duplicateSelected()" title="Copy Node">📄 Copy</button>
-                        <button onclick="pasteNodes()" title="Paste Node">📋 Paste</button>
-                        <button onclick="editNodeText()" title="Edit Text">✏️ Edit</button>
-                        <button onclick="startConnect()" title="Create Link">🔗 Link</button>
-                        <button class="btn-unlink" onclick="unlinkNode()" title="Unlink Parent">🔗💔 Unlink</button>
-                        <button class="btn-delete" onclick="deleteSelected()" title="Delete Node">🗑 Del</button>
+                        <button class="btn-add" onclick="addChildNode()">➕ Add</button>
+                        <button onclick="cutSelected()">✂️ Cut</button>
+                        <button onclick="duplicateSelected()">📄 Copy</button>
+                        <button onclick="pasteNodes()">📋 Paste</button>
+                        <button onclick="editNodeText()">✏️ Edit</button>
+                        <button onclick="startConnect()">🔗 Link</button>
+                        <button class="btn-unlink" onclick="unlinkNode()">🔗💔 Unlink</button>
+                        <button class="btn-delete" onclick="deleteSelected()">🗑 Del</button>
                     </div>
                     <div id="edgeToolbar" class="control-group" style="border-color: var(--warning-color);">
                         <button class="btn-delete" onclick="deleteSelectedEdge()">❌ Delete Line</button>
@@ -195,84 +210,90 @@
 
         window.onload = function() {
             if(localStorage.getItem('theme') === 'dark') toggleTheme();
-            if(localStorage.getItem('mindMapSessionV5_5')) { restoreSession(); } 
+            if(localStorage.getItem('mindMapSessionV5_6')) { restoreSession(); } 
             else { drawMap([{id:1, label:'Main Topic', level:0, color:{background:'#FFD1DC'}}], []); }
             setupKeyboardShortcuts(); setupBoxSelection();
         };
 
-        // --- Box Selection ---
-        function setupBoxSelection() {
-            const container = document.getElementById('mynetwork');
-            const box = document.getElementById('selectionBox');
-            let isSelecting = false; let startX, startY;
-            container.addEventListener('mousedown', function(e) {
-                if (e.ctrlKey || e.metaKey) {
-                    isSelecting = true; const rect = container.getBoundingClientRect();
-                    startX = e.clientX - rect.left; startY = e.clientY - rect.top;
-                    box.style.left = startX + 'px'; box.style.top = startY + 'px';
-                    box.style.width = '0px'; box.style.height = '0px'; box.style.display = 'block';
-                    network.setOptions({ interaction: { dragView: false, dragNodes: false } });
-                }
-            });
-            window.addEventListener('mousemove', function(e) {
-                if (!isSelecting) return; const rect = container.getBoundingClientRect();
-                const currentX = e.clientX - rect.left; const currentY = e.clientY - rect.top;
-                box.style.width = Math.abs(currentX - startX) + 'px';
-                box.style.height = Math.abs(currentY - startY) + 'px';
-                box.style.left = Math.min(currentX, startX) + 'px';
-                box.style.top = Math.min(currentY, startY) + 'px';
-            });
-            window.addEventListener('mouseup', function(e) {
-                if (!isSelecting) return; isSelecting = false; box.style.display = 'none';
-                network.setOptions({ interaction: { dragView: true, dragNodes: true } });
-                const rect = container.getBoundingClientRect();
-                const endX = e.clientX - rect.left; const endY = e.clientY - rect.top;
-                const selectRect = { left: Math.min(startX, endX), top: Math.min(startY, endY), right: Math.max(startX, endX), bottom: Math.max(startY, endY) };
-                const nodeIds = network.body.data.nodes.getIds(); const selectedNodes = [];
-                nodeIds.forEach(id => {
-                    const pos = network.canvasToDOM(network.getPositions([id])[id]);
-                    if (pos.x >= selectRect.left && pos.x <= selectRect.right && pos.y >= selectRect.top && pos.y <= selectRect.bottom) { selectedNodes.push(id); }
-                });
-                if(selectedNodes.length > 0) { network.selectNodes(selectedNodes); document.getElementById('contextToolbar').style.display = 'flex'; }
-            });
-        }
-
-        // --- Layout Switching (CRITICAL FIX v5.5) ---
+        // --- Layout Switching (CRITICAL FIX v5.6) ---
         function setLayout(type) {
             saveHistory();
             if (!network) return;
 
-            // 1. STRONG RESET: Stop & Clear Everything first
+            // 1. HARD STOP & UNLOCK EVERYTHING
             network.stopSimulation();
-            network.setOptions({ physics: false, layout: { hierarchical: false } });
             
-            // Force clear all coordinates and fixed states
+            // ⚠️ THE KEY FIX: Wipe Coordinates for proper reset
+            // If switching to Tree/Block/Free, we MUST clear x,y so Vis.js calculates from scratch.
             const allNodes = network.body.data.nodes.get();
-            const resetUpdates = allNodes.map(n => ({id: n.id, x: undefined, y: undefined, fixed: false}));
+            const resetUpdates = allNodes.map(n => ({
+                id: n.id, 
+                x: undefined, // Clear X
+                y: undefined, // Clear Y
+                fixed: false  // Unlock
+            }));
             network.body.data.nodes.update(resetUpdates);
 
-            // 2. Apply new layout AFTER a short delay to ensure reset takes effect
-            setTimeout(() => {
-                if (type === 'Board') {
-                    isBoardMode = true; toggleEdges(false); layoutBoard(); showStatus("Board Layout"); return;
-                }
+            if (type === 'Board') {
+                isBoardMode = true; toggleEdges(false); layoutBoard(); showStatus("Board Layout"); return;
+            }
 
-                isBoardMode = false; toggleEdges(true);
-                let options = {};
+            // Switching to Tree/Block/Free
+            isBoardMode = false; toggleEdges(true);
 
-                if (type === 'UD') { // Tree
-                    options = { layout: { hierarchical: { enabled: true, direction: "UD", levelSeparation: 200, nodeSpacing: 200, sortMethod: 'hubsize', shakeTowards: 'leaves' } }, physics: false };
-                } else if (type === 'LR') { // Block
-                    options = { layout: { hierarchical: { enabled: true, direction: "LR", levelSeparation: 250, nodeSpacing: 100, sortMethod: 'hubsize' } }, physics: false };
-                } else { // Free
-                    options = { layout: { hierarchical: false }, physics: { enabled: true, solver: 'forceAtlas2Based', stabilization: { iterations: 1000 }, timestep: 0.5 } };
-                }
-                
-                network.setOptions(options);
-                if (type === 'Free') network.startSimulation();
-                else network.fit();
-                showStatus(type + " Layout");
-            }, 50); // Short delay is key
+            let options = {};
+
+            if (type === 'UD') { // Tree
+                options = { 
+                    layout: { 
+                        hierarchical: { 
+                            enabled: true, 
+                            direction: "UD", 
+                            levelSeparation: 200, 
+                            nodeSpacing: 200,
+                            sortMethod: 'hubsize',
+                            shakeTowards: 'leaves',
+                            blockShifting: true,
+                            edgeMinimization: true
+                        } 
+                    },
+                    physics: { enabled: false } // Disable physics for clean Tree
+                };
+            } else if (type === 'LR') { // Block
+                options = { 
+                    layout: { 
+                        hierarchical: { 
+                            enabled: true, 
+                            direction: "LR", 
+                            levelSeparation: 250, 
+                            nodeSpacing: 100,
+                            sortMethod: 'hubsize' 
+                        } 
+                    },
+                    physics: { enabled: false }
+                };
+            } else { // Free
+                options = { 
+                    layout: { hierarchical: false }, // Explicitly disable hierarchy
+                    physics: { 
+                        enabled: true, 
+                        solver: 'forceAtlas2Based', 
+                        stabilization: { iterations: 1000 },
+                        timestep: 0.5
+                    } 
+                };
+            }
+
+            // Apply options and fit
+            network.setOptions(options);
+            
+            if (type === 'Free') {
+                network.startSimulation(); // Kickstart physics for Free
+            } else {
+                network.fit(); // Zoom fit for Tree/Block
+            }
+            
+            showStatus(type + " Layout");
         }
 
         // --- Board Layout Logic ---
@@ -301,7 +322,7 @@
             nodes.update(updates); network.setOptions({ physics: false, layout: { hierarchical: false } });
         }
 
-        // --- Helpers & Core Functions ---
+        // --- Helpers ---
         function updateSubtreeLevels(rootId, newBaseLevel, nodesDS, edgesDS) {
             const node = nodesDS.get(rootId); const diff = newBaseLevel - node.level;
             function apply(nid, d) {
@@ -323,6 +344,8 @@
             if(!network) return; const edges = network.body.data.edges.get();
             const updates = edges.map(e => ({ id: e.id, hidden: !visible })); network.body.data.edges.update(updates);
         }
+
+        // --- Generator Logic ---
         function processData() {
             const text = document.getElementById('inputText').value; if(!text.trim()) { alert("Please input text."); return; }
             historyStack = []; let nodes = []; let edges = []; let nodeId = 1;
@@ -343,6 +366,7 @@
             drawMap(nodes, edges); initialState = JSON.stringify({nodes: nodes, edges: edges}); setTimeout(() => setLayout('Board'), 100); saveSession();
         }
 
+        // --- Standard Functions (Setup, History, Save/Load) ---
         function drawMap(nodesData, edgesData) {
             const container = document.getElementById('mynetwork');
             const data = { nodes: new vis.DataSet(nodesData), edges: new vis.DataSet(edgesData) };
@@ -355,7 +379,7 @@
             network.on("click", (params) => { if (currentAction === 'connect' && params.nodes.length > 0) { const targetId = params.nodes[0]; if (targetId !== actionSourceId) finalizeConnect(actionSourceId, targetId); } else if (params.nodes.length === 0) { cancelAction(); } });
             network.on("doubleClick", (params) => { if(params.nodes.length > 0) editNodeText(); });
             
-            // Drag & Drop (Board Mode Only)
+            // Drag Drop
             let dragStartPos = {};
             network.on("dragStart", function(params) { if (params.nodes.length > 0) { params.nodes.forEach(id => { dragStartPos[id] = network.getPositions([id])[id]; }); } });
             network.on("dragEnd", function (params) {
@@ -374,24 +398,29 @@
             });
         }
 
-        // --- Standard UI Actions ---
-        function createNewProject() { if(confirm("Start a new project?")) { document.getElementById('inputText').value = ""; drawMap([{id:1, label:'Main Topic', level:0, color:{background:'#FFD1DC'}}], []); historyStack = []; localStorage.removeItem('mindMapSessionV5_5'); showStatus("New Project Created ✨"); } }
+        // --- Box Selection ---
+        function setupBoxSelection() {
+            const container = document.getElementById('mynetwork'); const box = document.getElementById('selectionBox'); let isSelecting = false; let startX, startY;
+            container.addEventListener('mousedown', function(e) { if (e.ctrlKey || e.metaKey) { isSelecting = true; const rect = container.getBoundingClientRect(); startX = e.clientX - rect.left; startY = e.clientY - rect.top; box.style.left = startX + 'px'; box.style.top = startY + 'px'; box.style.width = '0px'; box.style.height = '0px'; box.style.display = 'block'; network.setOptions({ interaction: { dragView: false, dragNodes: false } }); } });
+            window.addEventListener('mousemove', function(e) { if (!isSelecting) return; const rect = container.getBoundingClientRect(); const currentX = e.clientX - rect.left; const currentY = e.clientY - rect.top; box.style.width = Math.abs(currentX - startX) + 'px'; box.style.height = Math.abs(currentY - startY) + 'px'; box.style.left = Math.min(currentX, startX) + 'px'; box.style.top = Math.min(currentY, startY) + 'px'; });
+            window.addEventListener('mouseup', function(e) { if (!isSelecting) return; isSelecting = false; box.style.display = 'none'; network.setOptions({ interaction: { dragView: true, dragNodes: true } }); const rect = container.getBoundingClientRect(); const endX = e.clientX - rect.left; const endY = e.clientY - rect.top; const selectRect = { left: Math.min(startX, endX), top: Math.min(startY, endY), right: Math.max(startX, endX), bottom: Math.max(startY, endY) }; const nodeIds = network.body.data.nodes.getIds(); const selectedNodes = []; nodeIds.forEach(id => { const pos = network.canvasToDOM(network.getPositions([id])[id]); if (pos.x >= selectRect.left && pos.x <= selectRect.right && pos.y >= selectRect.top && pos.y <= selectRect.bottom) { selectedNodes.push(id); } }); if(selectedNodes.length > 0) { network.selectNodes(selectedNodes); document.getElementById('contextToolbar').style.display = 'flex'; } });
+        }
+
+        // --- Actions ---
+        function createNewProject() { if(confirm("Start a new project?")) { document.getElementById('inputText').value = ""; drawMap([{id:1, label:'Main Topic', level:0, color:{background:'#FFD1DC'}}], []); historyStack = []; localStorage.removeItem('mindMapSessionV5_6'); showStatus("New Project Created ✨"); } }
         function saveHistory() { if(!network || isRestoring) return; const s = { nodes: network.body.data.nodes.get(), edges: network.body.data.edges.get() }; historyStack.push(JSON.stringify(s)); if(historyStack.length > MAX_HISTORY) historyStack.shift(); }
         function undo() { if(historyStack.length === 0) { showStatus("No more steps"); return; } isRestoring = true; const prevStateJSON = historyStack.pop(); const prevState = JSON.parse(prevStateJSON); network.setData({ nodes: new vis.DataSet(prevState.nodes), edges: new vis.DataSet(prevState.edges) }); saveSession(); if(isBoardMode) setTimeout(() => { toggleEdges(false); layoutBoard(); isRestoring = false; }, 50); else isRestoring = false; showStatus("Undo successful"); }
         function resetMap() { if(!initialState) return; if(confirm("Reset to original?")) { isRestoring = true; const s = JSON.parse(initialState); network.setData({nodes: new vis.DataSet(s.nodes), edges: new vis.DataSet(s.edges)}); historyStack = []; isBoardMode = false; toggleEdges(true); saveSession(); isRestoring = false; } }
         function toggleTheme() { isDarkMode = !isDarkMode; document.documentElement.setAttribute('data-theme', isDarkMode ? 'dark' : 'light'); localStorage.setItem('theme', isDarkMode ? 'dark' : 'light'); }
         function showStatus(m) { const el = document.getElementById('statusMessage'); el.innerText = m; el.style.opacity = m ? 1 : 0; if(m) setTimeout(() => el.style.opacity = 0, 3000); }
-        function saveSession() { if(!network) return; const d = { text: document.getElementById('inputText').value, nodes: network.body.data.nodes.get(), edges: network.body.data.edges.get(), initialState: initialState }; localStorage.setItem('mindMapSessionV5_5', JSON.stringify(d)); }
-        function restoreSession() { const s = localStorage.getItem('mindMapSessionV5_5'); if(s) { try { const d = JSON.parse(s); document.getElementById('inputText').value = d.text||""; initialState = d.initialState; drawMap(d.nodes, d.edges); } catch(e){} } }
+        function saveSession() { if(!network) return; const d = { text: document.getElementById('inputText').value, nodes: network.body.data.nodes.get(), edges: network.body.data.edges.get(), initialState: initialState }; localStorage.setItem('mindMapSessionV5_6', JSON.stringify(d)); }
+        function restoreSession() { const s = localStorage.getItem('mindMapSessionV5_6'); if(s) { try { const d = JSON.parse(s); document.getElementById('inputText').value = d.text||""; initialState = d.initialState; drawMap(d.nodes, d.edges); } catch(e){} } }
         function exportProject() { if(!network) return; const data = { nodes: network.body.data.nodes.get(), edges: network.body.data.edges.get(), text: document.getElementById('inputText').value, layoutMode: isBoardMode ? 'Board' : 'Free' }; const blob = new Blob([JSON.stringify(data)], {type: "application/json"}); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = "mindmap_project.json"; a.click(); showStatus("Project Saved! 💾"); }
         function importProject(event) { const file = event.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = function(e) { try { const data = JSON.parse(e.target.result); if(data.text) document.getElementById('inputText').value = data.text; drawMap(data.nodes, data.edges); if(data.layoutMode === 'Board') setTimeout(() => setLayout('Board'), 100); else setLayout('Free'); showStatus("Project Loaded! 📂"); } catch(err) { alert("Error loading file."); } }; reader.readAsText(file); event.target.value = ''; }
-        
-        // --- Edit Functions (Cut/Copy/Paste) ---
         function copySelected() { const selectedIds = network.getSelectedNodes(); if (selectedIds.length === 0) return; clipboard = selectedIds; showStatus(`Copied ${selectedIds.length} nodes`); }
         function cutSelected() { copySelected(); deleteSelected(); showStatus("Cut!"); }
         function duplicateSelected() { copySelected(); pasteNodes(); }
         function pasteNodes() { if (!clipboard || clipboard.length === 0) return; saveHistory(); const nodesDS = network.body.data.nodes; const edgesDS = network.body.data.edges; const allEdges = edgesDS.get(); let idMap = {}; clipboard.forEach(oldId => { const oldNode = nodesDS.get(oldId); if (!oldNode) return; const newId = Date.now() + Math.floor(Math.random()*10000); idMap[oldId] = newId; const pos = network.getPositions([oldId])[oldId]; nodesDS.add({ ...oldNode, id: newId, x: pos.x + 30, y: pos.y + 30, label: oldNode.label }); }); clipboard.forEach(oldId => { const incoming = allEdges.find(e => e.to === oldId); if (incoming) { const newChildId = idMap[oldId]; let newParentId = idMap[incoming.from] ? idMap[incoming.from] : incoming.from; if (newChildId) edgesDS.add({from: newParentId, to: newChildId, hidden: isBoardMode}); } }); network.selectNodes(Object.values(idMap)); if(isBoardMode) layoutBoard(); saveSession(); showStatus("Pasted!"); }
-
         function getSelectedNode() { const ids = network.getSelectedNodes(); return ids.length > 0 ? ids[0] : null; }
         function addChildNode() { const pid = getSelectedNode(); if(!pid) return; const l = prompt("Child Node Name:"); if(l) { saveHistory(); const nid = Date.now(); const parentNode = network.body.data.nodes.get(pid); const newLevel = (parentNode.level || 0) + 1; const color = getNodeColor(newLevel); network.body.data.nodes.add({ id: nid, label: l, shape:'box', color: { background: color.bg, border: color.border }, font:{color:'#333'}, level: newLevel }); network.body.data.edges.add({from: pid, to: nid, hidden: isBoardMode}); saveSession(); if(isBoardMode) setTimeout(layoutBoard, 50); } }
         function editNodeText() { const id = getSelectedNode(); if(!id) return; const n = network.body.data.nodes.get(id); const l = prompt("Edit Text:", n.label); if(l !== null) { saveHistory(); network.body.data.nodes.update({id: id, label: l}); saveSession(); } }
@@ -404,7 +433,7 @@
         function cancelAction() { if (actionSourceId) network.body.data.nodes.update({id: actionSourceId, borderWidth: 1}); currentAction = null; actionSourceId = null; document.body.style.cursor = "default"; showStatus(""); }
         function setupKeyboardShortcuts() { document.addEventListener('keydown', function(e) { if(e.key === 'Delete' || e.key === 'Backspace') { if (document.activeElement.tagName !== "INPUT" && document.activeElement.tagName !== "TEXTAREA") { if(network.getSelectedNodes().length > 0) deleteSelected(); if(network.getSelectedEdges().length > 0) deleteSelectedEdge(); } } if((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); undo(); } if((e.ctrlKey || e.metaKey) && e.key === 'c') { if (document.activeElement.tagName !== "TEXTAREA") { e.preventDefault(); copySelected(); } } if((e.ctrlKey || e.metaKey) && e.key === 'v') { if (document.activeElement.tagName !== "TEXTAREA") { e.preventDefault(); pasteNodes(); } } if((e.ctrlKey || e.metaKey) && e.key === 'x') { if (document.activeElement.tagName !== "TEXTAREA") { e.preventDefault(); cutSelected(); } } }); }
         async function exportMap(t) { const el = document.getElementById('mynetwork'); const c = await html2canvas(el); const l = document.createElement('a'); l.download = 'mindmap.png'; l.href = c.toDataURL(); l.click(); }
-        async function exportWord() { const el = document.getElementById('mynetwork'); const bg = el.style.backgroundColor; el.style.backgroundColor = "#fff"; const c = await html2canvas(el); const d = c.toDataURL('image/png'); el.style.backgroundColor = bg; const h = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Export</title></head><body><h1>Mind Map</h1><br><img src="${d}" style="width:100%"><br><p>v5.5</p></body></html>`; const b = new Blob(['\ufeff', h], { type: 'application/msword' }); const l = document.createElement('a'); l.href = URL.createObjectURL(b); l.download = 'mindmap.doc'; l.click(); }
+        async function exportWord() { const el = document.getElementById('mynetwork'); const bg = el.style.backgroundColor; el.style.backgroundColor = "#fff"; const c = await html2canvas(el); const d = c.toDataURL('image/png'); el.style.backgroundColor = bg; const h = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Export</title></head><body><h1>Mind Map</h1><br><img src="${d}" style="width:100%"><br><p>v5.6</p></body></html>`; const b = new Blob(['\ufeff', h], { type: 'application/msword' }); const l = document.createElement('a'); l.href = URL.createObjectURL(b); l.download = 'mindmap.doc'; l.click(); }
     </script>
 </body>
 </html>
