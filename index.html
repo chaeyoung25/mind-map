@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Mind Map (v5.0 Stable)</title>
+    <title>AI Mind Map (v5.1 Stable)</title>
     <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -70,14 +70,13 @@
 
         #mynetwork { width: 100%; height: 100%; outline: none; cursor: default; }
         
-        /* Selection Box Styling */
         #selectionBox {
             position: absolute;
             background-color: var(--selection-blue);
             border: 1px solid var(--selection-border);
             display: none;
             z-index: 10000;
-            pointer-events: none; /* Allows clicks to pass through */
+            pointer-events: none;
         }
 
         .map-controls { 
@@ -143,7 +142,7 @@
                     * <b>Layouts:</b> Free/Board Fixed.<br>
                     * <b>Structure:</b> Auto-aligns like OneNote.
                 </p>
-                <div class="version-tag">Version 5.0 Stable</div>
+                <div class="version-tag">Version 5.1</div>
             </div>
         </div>
 
@@ -224,10 +223,9 @@
             if(localStorage.getItem('theme') === 'dark') toggleTheme();
             
             // Check session
-            if(localStorage.getItem('mindMapSessionV5_0')) {
+            if(localStorage.getItem('mindMapSessionV5_1')) {
                 restoreSession();
             } else {
-                // Initialize clean
                 drawMap([{id:1, label:'Main Topic', level:0, color:{background:'#FFD1DC'}}], []);
             }
             
@@ -235,7 +233,7 @@
             setupBoxSelection();
         };
 
-        // --- Box Selection Logic (Fixed Coordinates) ---
+        // --- Box Selection Logic ---
         function setupBoxSelection() {
             const container = document.getElementById('mynetwork');
             const box = document.getElementById('selectionBox');
@@ -243,11 +241,8 @@
             let startX, startY;
 
             container.addEventListener('mousedown', function(e) {
-                // Trigger only if Ctrl/Cmd is held
                 if (e.ctrlKey || e.metaKey) {
                     isSelecting = true;
-                    
-                    // Get exact coordinates relative to container
                     const rect = container.getBoundingClientRect();
                     startX = e.clientX - rect.left;
                     startY = e.clientY - rect.top;
@@ -258,7 +253,6 @@
                     box.style.height = '0px';
                     box.style.display = 'block';
                     
-                    // Disable Vis.js internal drag to prevent map panning
                     network.setOptions({ interaction: { dragView: false, dragNodes: false } });
                 }
             });
@@ -284,15 +278,12 @@
                 if (!isSelecting) return;
                 isSelecting = false;
                 box.style.display = 'none';
-                
-                // Re-enable Vis.js interaction
                 network.setOptions({ interaction: { dragView: true, dragNodes: true } });
 
                 const rect = container.getBoundingClientRect();
                 const endX = e.clientX - rect.left;
                 const endY = e.clientY - rect.top;
 
-                // Define selection rectangle
                 const selectRect = {
                     left: Math.min(startX, endX),
                     top: Math.min(startY, endY),
@@ -300,12 +291,10 @@
                     bottom: Math.max(startY, endY)
                 };
 
-                // Find nodes within rectangle
                 const nodeIds = network.body.data.nodes.getIds();
                 const selectedNodes = [];
                 
                 nodeIds.forEach(id => {
-                    // Convert canvas coordinates to DOM coordinates
                     const pos = network.canvasToDOM(network.getPositions([id])[id]);
                     if (pos.x >= selectRect.left && pos.x <= selectRect.right &&
                         pos.y >= selectRect.top && pos.y <= selectRect.bottom) {
@@ -326,17 +315,21 @@
                 document.getElementById('inputText').value = "";
                 drawMap([{id:1, label:'Main Topic', level:0, color:{background:'#FFD1DC'}}], []);
                 historyStack = [];
-                localStorage.removeItem('mindMapSessionV5_0');
+                localStorage.removeItem('mindMapSessionV5_1');
                 showStatus("New Project Created ✨");
             }
         }
 
-        // --- Layout Switching (Fixed Free Mode) ---
+        // --- Layout Switching (CRITICAL FIX v5.1) ---
         function setLayout(type) {
             saveHistory();
             if (!network) return;
 
-            // 1. Release ALL locks first
+            // 1. Force Stop any running physics FIRST
+            network.setOptions({ physics: { enabled: false } });
+            network.stopSimulation();
+
+            // 2. Unlock all nodes (Remove fixed state from previous Board layout)
             const allNodes = network.body.data.nodes.get();
             const updates = allNodes.map(n => ({id: n.id, fixed: false}));
             network.body.data.nodes.update(updates);
@@ -344,7 +337,7 @@
             if (type === 'Board') {
                 isBoardMode = true;
                 toggleEdges(false);
-                layoutBoard(); // Trigger OneNote Layout
+                layoutBoard(); // Manual calculation
                 showStatus("Board Layout");
                 return;
             }
@@ -360,10 +353,10 @@
             } else if (type === 'LR') {
                 options.layout = { hierarchical: { enabled: true, direction: "LR", levelSeparation: 200, sortMethod: 'hubsize' } };
             } else { 
-                // ✨ Free Mode Fix: Reset coordinates to allow explosion
+                // ✨ Free Layout: Reset Coordinates & Enable Physics
                 options.layout = { hierarchical: { enabled: false } };
                 
-                // Clear X and Y to let physics take over
+                // Clear X/Y so physics can explode them out
                 const clearPos = allNodes.map(n => ({id: n.id, x: undefined, y: undefined}));
                 network.body.data.nodes.update(clearPos);
                 
@@ -377,11 +370,10 @@
             }
 
             network.setOptions(options);
-            // network.fit(); 
             showStatus(type + " Layout");
         }
 
-        // --- Generator Logic (Keep v4.8 Logic) ---
+        // --- Generator Logic ---
         function processData() {
             const text = document.getElementById('inputText').value;
             if(!text.trim()) { alert("Please input text."); return; }
@@ -455,6 +447,108 @@
             saveSession();
         }
 
+        function drawMap(nodesData, edgesData) {
+            const container = document.getElementById('mynetwork');
+            const data = { nodes: new vis.DataSet(nodesData), edges: new vis.DataSet(edgesData) };
+            const options = {
+                nodes: { shape: 'box', margin: 10, borderWidth: 1, shadow: true, font: { face: 'Pretendard', color:'#333' } },
+                edges: { color: '#B0B0B0', width: 2, smooth: { type: 'cubicBezier', forceDirection: 'vertical', roundness: 0.4 } },
+                physics: false,
+                interaction: { hover: true, selectConnectedEdges: false, multiselect: true, dragView: true }
+            };
+
+            network = new vis.Network(container, data, options);
+
+            network.on("selectNode", () => {
+                if(currentAction) return;
+                document.getElementById('contextToolbar').style.display = 'flex';
+                document.getElementById('edgeToolbar').style.display = 'none';
+            });
+            network.on("selectEdge", (params) => {
+                if(params.nodes.length === 0) {
+                    document.getElementById('edgeToolbar').style.display = 'flex';
+                    document.getElementById('contextToolbar').style.display = 'none';
+                }
+            });
+            network.on("deselectNode", () => document.getElementById('contextToolbar').style.display = 'none');
+            network.on("deselectEdge", () => document.getElementById('edgeToolbar').style.display = 'none');
+
+            network.on("click", (params) => {
+                if (currentAction === 'connect' && params.nodes.length > 0) {
+                    const targetId = params.nodes[0];
+                    if (targetId !== actionSourceId) finalizeConnect(actionSourceId, targetId);
+                } else if (params.nodes.length === 0) {
+                    cancelAction();
+                }
+            });
+
+            network.on("doubleClick", (params) => { if(params.nodes.length > 0) editNodeText(); });
+            
+            // --- Drag & Drop (Group Move) ---
+            let dragStartPos = {};
+
+            network.on("dragStart", function(params) {
+                if (params.nodes.length > 0) {
+                    params.nodes.forEach(id => {
+                        dragStartPos[id] = network.getPositions([id])[id];
+                    });
+                }
+            });
+
+            network.on("dragEnd", function (params) {
+                if (!isBoardMode || params.nodes.length === 0) { saveSession(); return; }
+                
+                saveHistory();
+                const selectedIds = params.nodes;
+                const firstId = selectedIds[0];
+                const newPos = network.getPositions([firstId])[firstId];
+                
+                const nodesDS = network.body.data.nodes;
+                const edgesDS = network.body.data.edges;
+                const allEdges = edgesDS.get();
+                
+                let leaders = selectedIds.filter(id => {
+                    const incoming = allEdges.find(e => e.to === id);
+                    if (incoming && selectedIds.includes(incoming.from)) return false; 
+                    return true; 
+                });
+
+                const allNodes = nodesDS.get();
+                let columns = allNodes.filter(n => n.level === 1);
+                columns.sort((a,b) => a.x - b.x);
+                
+                let targetCol = null;
+                let minDist = Infinity;
+                
+                columns.forEach(col => {
+                    const dist = Math.abs(col.x - newPos.x);
+                    if(dist < minDist) { minDist = dist; targetCol = col; }
+                });
+
+                const rootId = 1;
+                const COLUMN_SNAP_DIST = 150; 
+
+                leaders.forEach(nodeId => {
+                    if (nodeId === rootId) return;
+                    
+                    const pos = network.getPositions([nodeId])[nodeId];
+                    nodesDS.update({ id: nodeId, x: pos.x, y: pos.y });
+
+                    if (pos.y < BOARD_CONFIG.headerY + 50 || minDist > COLUMN_SNAP_DIST) {
+                        updateSubtreeLevels(nodeId, 1, nodesDS, edgesDS);
+                        reParentNode(nodeId, rootId, edgesDS);
+                    }
+                    else if (targetCol && targetCol.id !== nodeId) {
+                        updateSubtreeLevels(nodeId, 2, nodesDS, edgesDS);
+                        reParentNode(nodeId, targetCol.id, edgesDS);
+                    }
+                });
+
+                layoutBoard();
+                saveSession();
+            });
+        }
+
         // --- Board Layout Algorithm ---
         function layoutBoard() {
             const nodes = network.body.data.nodes;
@@ -498,117 +592,16 @@
             network.setOptions({ physics: false, layout: { hierarchical: { enabled: false } } });
         }
 
-        // --- Standard Functions (Setup, History, Save/Load) ---
-        function drawMap(nodesData, edgesData) {
-            const container = document.getElementById('mynetwork');
-            const data = { nodes: new vis.DataSet(nodesData), edges: new vis.DataSet(edgesData) };
-            const options = {
-                nodes: { shape: 'box', margin: 10, borderWidth: 1, shadow: true, font: { face: 'Pretendard', color:'#333' } },
-                edges: { color: '#B0B0B0', width: 2, smooth: { type: 'cubicBezier', forceDirection: 'vertical', roundness: 0.4 } },
-                physics: false,
-                interaction: { hover: true, selectConnectedEdges: false, multiselect: true, dragView: true }
-            };
-
-            network = new vis.Network(container, data, options);
-
-            // Click Events
-            network.on("selectNode", () => {
-                if(currentAction) return;
-                document.getElementById('contextToolbar').style.display = 'flex';
-                document.getElementById('edgeToolbar').style.display = 'none';
-            });
-            network.on("selectEdge", (params) => {
-                if(params.nodes.length === 0) {
-                    document.getElementById('edgeToolbar').style.display = 'flex';
-                    document.getElementById('contextToolbar').style.display = 'none';
-                }
-            });
-            network.on("deselectNode", () => document.getElementById('contextToolbar').style.display = 'none');
-            network.on("deselectEdge", () => document.getElementById('edgeToolbar').style.display = 'none');
-
-            network.on("click", (params) => {
-                if (currentAction === 'connect' && params.nodes.length > 0) {
-                    const targetId = params.nodes[0];
-                    if (targetId !== actionSourceId) finalizeConnect(actionSourceId, targetId);
-                } else if (params.nodes.length === 0) {
-                    cancelAction();
-                }
-            });
-
-            network.on("doubleClick", (params) => { if(params.nodes.length > 0) editNodeText(); });
-            
-            // Drag Logic
-            let dragStartPos = {};
-            network.on("dragStart", function(params) {
-                if (params.nodes.length > 0) {
-                    params.nodes.forEach(id => { dragStartPos[id] = network.getPositions([id])[id]; });
-                }
-            });
-
-            network.on("dragEnd", function (params) {
-                if (!isBoardMode || params.nodes.length === 0) { saveSession(); return; }
-                saveHistory();
-                
-                const selectedIds = params.nodes;
-                const firstId = selectedIds[0];
-                const newPos = network.getPositions([firstId])[firstId];
-                
-                const nodesDS = network.body.data.nodes;
-                const edgesDS = network.body.data.edges;
-                
-                // Identify Leaders
-                const allEdges = edgesDS.get();
-                let leaders = selectedIds.filter(id => {
-                    const incoming = allEdges.find(e => e.to === id);
-                    if (incoming && selectedIds.includes(incoming.from)) return false; 
-                    return true; 
-                });
-
-                const allNodes = nodesDS.get();
-                let columns = allNodes.filter(n => n.level === 1);
-                columns.sort((a,b) => a.x - b.x);
-                
-                let targetCol = null;
-                let minDist = Infinity;
-                columns.forEach(col => {
-                    const dist = Math.abs(col.x - newPos.x);
-                    if(dist < minDist) { minDist = dist; targetCol = col; }
-                });
-
-                const rootId = 1;
-                const COLUMN_SNAP_DIST = 150; 
-
-                leaders.forEach(nodeId => {
-                    if (nodeId === rootId) return;
-                    const pos = network.getPositions([nodeId])[nodeId];
-                    nodesDS.update({ id: nodeId, x: pos.x, y: pos.y });
-
-                    if (pos.y < BOARD_CONFIG.headerY + 50 || minDist > COLUMN_SNAP_DIST) {
-                        updateSubtreeLevels(nodeId, 1, nodesDS, edgesDS);
-                        reParentNode(nodeId, rootId, edgesDS);
-                    }
-                    else if (targetCol && targetCol.id !== nodeId) {
-                        updateSubtreeLevels(nodeId, 2, nodesDS, edgesDS);
-                        reParentNode(nodeId, targetCol.id, edgesDS);
-                    }
-                });
-                layoutBoard();
-                saveSession();
-            });
-        }
-
         // --- Helpers ---
         function updateSubtreeLevels(rootId, newBaseLevel, nodesDS, edgesDS) {
             const node = nodesDS.get(rootId);
             const diff = newBaseLevel - node.level;
-            
             function apply(nid, d) {
                 let n = nodesDS.get(nid);
                 let nextLevel = n.level + d;
                 if (nextLevel < 1) nextLevel = 1; 
                 let color = getNodeColor(nextLevel);
                 nodesDS.update({id: nid, level: nextLevel, color: {background: color.bg, border: color.border}});
-                
                 const children = edgesDS.get().filter(e => e.from === nid).map(e => e.to);
                 children.forEach(cid => apply(cid, d));
             }
@@ -672,19 +665,6 @@
             else isRestoring = false;
             showStatus("Undo successful");
         }
-        function resetMap() {
-            if(!initialState) return;
-            if(confirm("Reset to original?")) {
-                isRestoring = true;
-                const s = JSON.parse(initialState);
-                network.setData({nodes: new vis.DataSet(s.nodes), edges: new vis.DataSet(s.edges)});
-                historyStack = [];
-                isBoardMode = false;
-                toggleEdges(true);
-                saveSession();
-                isRestoring = false;
-            }
-        }
         function toggleTheme() {
             isDarkMode = !isDarkMode;
             document.documentElement.setAttribute('data-theme', isDarkMode ? 'dark' : 'light');
@@ -698,10 +678,10 @@
         function saveSession() {
             if(!network) return;
             const d = { text: document.getElementById('inputText').value, nodes: network.body.data.nodes.get(), edges: network.body.data.edges.get(), initialState: initialState };
-            localStorage.setItem('mindMapSessionV5_0', JSON.stringify(d));
+            localStorage.setItem('mindMapSessionV5_1', JSON.stringify(d));
         }
         function restoreSession() {
-            const s = localStorage.getItem('mindMapSessionV5_0');
+            const s = localStorage.getItem('mindMapSessionV5_1');
             if(s) { try { const d = JSON.parse(s); document.getElementById('inputText').value = d.text||""; initialState = d.initialState; drawMap(d.nodes, d.edges); } catch(e){} }
         }
         function exportProject() {
@@ -837,7 +817,7 @@
             document.body.style.cursor = "default"; showStatus("");
         }
         async function exportMap(t) { const el = document.getElementById('mynetwork'); const c = await html2canvas(el); const l = document.createElement('a'); l.download = 'mindmap.png'; l.href = c.toDataURL(); l.click(); }
-        async function exportWord() { const el = document.getElementById('mynetwork'); const bg = el.style.backgroundColor; el.style.backgroundColor = "#fff"; const c = await html2canvas(el); const d = c.toDataURL('image/png'); el.style.backgroundColor = bg; const h = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Export</title></head><body><h1>Mind Map</h1><br><img src="${d}" style="width:100%"><br><p>v5.0</p></body></html>`; const b = new Blob(['\ufeff', h], { type: 'application/msword' }); const l = document.createElement('a'); l.href = URL.createObjectURL(b); l.download = 'mindmap.doc'; l.click(); }
+        async function exportWord() { const el = document.getElementById('mynetwork'); const bg = el.style.backgroundColor; el.style.backgroundColor = "#fff"; const c = await html2canvas(el); const d = c.toDataURL('image/png'); el.style.backgroundColor = bg; const h = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Export</title></head><body><h1>Mind Map</h1><br><img src="${d}" style="width:100%"><br><p>v5.1</p></body></html>`; const b = new Blob(['\ufeff', h], { type: 'application/msword' }); const l = document.createElement('a'); l.href = URL.createObjectURL(b); l.download = 'mindmap.doc'; l.click(); }
     </script>
 </body>
 </html>
