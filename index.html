@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Mind Map (v5.9 Undo/Reset Fixed)</title>
+    <title>AI Mind Map (v6.0 Perfect Selection)</title>
     <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -17,10 +17,9 @@
             --border-color: rgba(0, 0, 0, 0.1);
             --accent-color: #007AFF;
             --danger-color: #FF3B30;
-            --selection-blue: rgba(0, 122, 255, 0.15);
+            --selection-blue: rgba(0, 122, 255, 0.2);
             --selection-border: #007AFF;
         }
-
         [data-theme="dark"] {
             --bg-color: #191919;
             --panel-bg: rgba(40, 40, 40, 0.95);
@@ -28,30 +27,25 @@
             --border-color: rgba(255, 255, 255, 0.15);
             --accent-color: #0A84FF;
         }
-
         body { 
             font-family: -apple-system, BlinkMacSystemFont, "Pretendard", sans-serif; 
             padding: 20px; background-color: var(--bg-color); color: var(--text-color); margin: 0; height: 100vh; 
             box-sizing: border-box; transition: background-color 0.3s ease; backdrop-filter: blur(20px);
             overflow: hidden; user-select: none; 
         }
-
         .container { display: flex; gap: 20px; height: 92vh; flex-direction: column; }
         @media (min-width: 900px) { 
             .container { flex-direction: row; } 
             .input-panel { width: 340px; flex-shrink: 0; } 
             .map-panel { flex-grow: 1; } 
         }
-
         .panel { 
             background: var(--panel-bg); padding: 20px; border-radius: 12px; 
             box-shadow: 0 4px 24px rgba(0,0,0,0.08); border: 1px solid var(--border-color); 
             display: flex; flex-direction: column; position: relative; 
             backdrop-filter: blur(20px);
         }
-        
         h2 { margin: 0 0 15px 0; font-size: 1.1rem; font-weight: 600; display: flex; justify-content: space-between; align-items: center; }
-        
         textarea { 
             width: 100%; height: 200px; padding: 14px; border-radius: 10px; border: 1px solid var(--border-color); 
             resize: none; font-family: inherit; margin-bottom: 10px; background: var(--bg-color); 
@@ -59,7 +53,6 @@
             user-select: text; 
         }
         textarea:focus { border-color: var(--accent-color); }
-
         .btn { padding: 12px; border-radius: 10px; border: none; cursor: pointer; font-weight: 600; font-size: 0.9rem; transition: all 0.2s; }
         .btn-primary { background-color: var(--accent-color); color: white; width: 100%; margin-top: 10px; box-shadow: 0 2px 8px rgba(0,122,255,0.25); }
         .btn-primary:hover { transform: translateY(-1px); opacity: 0.9; }
@@ -67,47 +60,41 @@
         .btn-secondary:hover { background-color: rgba(120, 120, 128, 0.2); }
         .btn-toolbar { display: flex; gap: 6px; margin-bottom: 15px; }
         .btn-toolbar .btn { flex: 1; }
-
         #mynetwork { width: 100%; height: 100%; outline: none; cursor: default; }
         
+        /* Selection Box - Correctly Positioned */
         #selectionBox {
             position: absolute;
             background-color: var(--selection-blue);
             border: 1px solid var(--selection-border);
             display: none;
-            z-index: 10000;
+            z-index: 9999;
             pointer-events: none;
         }
-
         .map-controls { 
             position: absolute; top: 16px; right: 16px; left: 16px; 
             display: flex; justify-content: space-between; pointer-events: none; z-index: 10;
         }
-        
         .control-group { 
             pointer-events: auto; display: flex; gap: 5px; background: var(--panel-bg); 
             padding: 5px; border-radius: 10px; border: 1px solid var(--border-color); 
             box-shadow: 0 4px 15px rgba(0,0,0,0.05); flex-wrap: wrap; align-items: center;
         }
-
         .control-group button { 
             padding: 6px 10px; font-size: 0.75rem; background: transparent; border: none; 
             border-radius: 6px; cursor: pointer; color: var(--text-color); transition: 0.2s; 
             display: flex; align-items: center; gap: 4px; font-weight: 500;
         }
         .control-group button:hover { background-color: rgba(0,0,0,0.05); }
-        
         .btn-add { color: var(--accent-color) !important; }
         .btn-unlink { color: var(--text-color) !important; opacity: 0.8; }
         .btn-delete { color: var(--danger-color) !important; }
-
         #statusMessage {
             position: absolute; top: 70px; left: 50%; transform: translateX(-50%);
             background: rgba(0, 0, 0, 0.75); color: white; padding: 8px 20px; border-radius: 30px;
             font-size: 0.85rem; font-weight: 500; box-shadow: 0 4px 20px rgba(0,0,0,0.15);
             pointer-events: none; opacity: 0; transition: opacity 0.3s; z-index: 100; backdrop-filter: blur(10px);
         }
-
         .version-tag { font-size: 0.7rem; color: var(--text-color); opacity: 0.4; margin-top: 15px; text-align: right; }
         #contextToolbar, #edgeToolbar { display: none; }
     </style>
@@ -138,10 +125,11 @@
 
             <div style="margin-top:auto;">
                 <p style="font-size:0.75rem; opacity:0.6; line-height:1.5; margin-bottom:0;">
-                    * <b>Undo/Reset:</b> Restores layout state.<br>
-                    * <b>Board:</b> No lines + Drag support.
+                    * <b>Multi-Select:</b> Ctrl + Drag Fixed.<br>
+                    * <b>System:</b> Rebuilds on layout switch.<br>
+                    * <b>Board:</b> Drag & Drop + No lines.
                 </p>
-                <div class="version-tag">Version 5.9 (Undo Fixed)</div>
+                <div class="version-tag">Version 6.0 (Selection Fixed)</div>
             </div>
         </div>
 
@@ -195,7 +183,7 @@
         let actionSourceId = null; 
         
         let historyStack = [];
-        let initialState = null; // Stores the initial generated state for Reset
+        let initialState = null;
         const MAX_HISTORY = 50;
         let clipboard = [];
 
@@ -212,7 +200,7 @@
         // --- Init ---
         window.onload = function() {
             if(localStorage.getItem('theme') === 'dark') toggleTheme();
-            if(localStorage.getItem('mindMapSessionV5_9')) {
+            if(localStorage.getItem('mindMapSessionV6_0')) {
                 restoreSession();
             } else {
                 initNetwork([{id:1, label:'Main Topic', level:0, color:{background:'#FFD1DC'}}], [], 'Board');
@@ -221,7 +209,7 @@
             setupBoxSelection();
         };
 
-        // --- SWITCH LAYOUT (Rebuild Strategy) ---
+        // --- THE "REBUILD" SWITCH LAYOUT ---
         function switchLayout(type) {
             saveHistory();
             currentLayout = type;
@@ -236,7 +224,13 @@
                 newNodes = calculateBoardPositions(currentNodes, currentEdges);
                 newEdges = currentEdges.map(e => ({...e, hidden: true})); // Hide lines for Board
             } else {
-                newNodes = currentNodes.map(n => ({ ...n, x: undefined, y: undefined, fixed: false }));
+                // Clear positions for Tree/Block/Free so engine takes over
+                newNodes = currentNodes.map(n => ({
+                    ...n,
+                    x: undefined,
+                    y: undefined,
+                    fixed: false 
+                }));
                 newEdges = currentEdges.map(e => ({...e, hidden: false})); // Show lines
             }
 
@@ -252,7 +246,6 @@
             nodesDS.clear(); edgesDS.clear();
             nodesDS.add(nodes); edgesDS.add(edges);
             
-            // Keep currentLayout synced
             currentLayout = layoutType;
 
             const data = { nodes: nodesDS, edges: edgesDS };
@@ -263,11 +256,11 @@
                 physics: false 
             };
 
-            if (layoutType === 'UD') { 
+            if (layoutType === 'UD') { // Tree
                 options.layout = { hierarchical: { enabled: true, direction: "UD", levelSeparation: 200, nodeSpacing: 200, sortMethod: 'hubsize', shakeTowards: 'leaves' } };
-            } else if (layoutType === 'LR') { 
+            } else if (layoutType === 'LR') { // Block
                 options.layout = { hierarchical: { enabled: true, direction: "LR", levelSeparation: 250, nodeSpacing: 100, sortMethod: 'hubsize' } };
-            } else if (layoutType === 'Free') { 
+            } else if (layoutType === 'Free') { // Free
                 options.layout = { hierarchical: false };
                 options.physics = { enabled: true, solver: 'forceAtlas2Based', stabilization: { iterations: 200 } };
             } else { // Board
@@ -316,25 +309,104 @@
             return processedNodes;
         }
 
-        // --- History / Undo / Reset (THE FIX) ---
-        
+        // --- Box Selection Logic (FIXED v6.0) ---
+        function setupBoxSelection() {
+            const container = document.getElementById('mynetwork');
+            const box = document.getElementById('selectionBox');
+            let isSelecting = false;
+            let startX = 0, startY = 0;
+
+            container.addEventListener('mousedown', function(e) {
+                if (e.ctrlKey || e.metaKey) {
+                    isSelecting = true;
+                    // Use Page Coordinates for the Div Position
+                    startX = e.pageX;
+                    startY = e.pageY;
+                    
+                    box.style.left = startX + 'px';
+                    box.style.top = startY + 'px';
+                    box.style.width = '0px';
+                    box.style.height = '0px';
+                    box.style.display = 'block';
+                    
+                    network.setOptions({ interaction: { dragView: false, dragNodes: false } });
+                }
+            });
+
+            window.addEventListener('mousemove', function(e) {
+                if (!isSelecting) return;
+                const currentX = e.pageX;
+                const currentY = e.pageY;
+
+                const width = Math.abs(currentX - startX);
+                const height = Math.abs(currentY - startY);
+                const newLeft = Math.min(currentX, startX);
+                const newTop = Math.min(currentY, startY);
+
+                box.style.width = width + 'px';
+                box.style.height = height + 'px';
+                box.style.left = newLeft + 'px';
+                box.style.top = newTop + 'px';
+            });
+
+            window.addEventListener('mouseup', function(e) {
+                if (!isSelecting) return;
+                isSelecting = false;
+                box.style.display = 'none';
+                network.setOptions({ interaction: { dragView: true, dragNodes: true } });
+
+                // Calculate selection area relative to the VIEWPORT for node detection
+                // because network.canvasToDOM returns viewport-relative coordinates
+                const rect = container.getBoundingClientRect();
+                
+                // Mouse end point in page coordinates
+                const endX = e.pageX;
+                const endY = e.pageY;
+
+                // Selection box in Page Coordinates
+                const selLeft = Math.min(startX, endX);
+                const selRight = Math.max(startX, endX);
+                const selTop = Math.min(startY, endY);
+                const selBottom = Math.max(startY, endY);
+
+                const nodeIds = nodesDS.getIds();
+                const selectedNodes = [];
+                
+                nodeIds.forEach(id => {
+                    // Get node position in Canvas
+                    const canvasPos = network.getPositions([id])[id];
+                    // Convert to DOM (Viewport)
+                    const domPos = network.canvasToDOM(canvasPos);
+                    
+                    // Convert DOM (Viewport) to Page Coordinates to match selection box
+                    const nodePageX = domPos.x + window.scrollX + rect.left; // Adjust for container position + scroll
+                    const nodePageY = domPos.y + window.scrollY + rect.top;
+
+                    // Simple Point-in-Rect check
+                    if (nodePageX >= selLeft && nodePageX <= selRight &&
+                        nodePageY >= selTop && nodePageY <= selBottom) {
+                        selectedNodes.push(id);
+                    }
+                });
+
+                if(selectedNodes.length > 0) {
+                    network.selectNodes(selectedNodes);
+                    document.getElementById('contextToolbar').style.display = 'flex';
+                }
+            });
+        }
+
+        // --- History / Undo / Reset ---
         function saveHistory() {
             if (!nodesDS) return;
-            // Capture state WITH layout info
-            const s = { 
-                nodes: nodesDS.get(), 
-                edges: edgesDS.get(),
-                layout: currentLayout 
-            };
+            const s = { nodes: nodesDS.get(), edges: edgesDS.get(), layout: currentLayout };
             historyStack.push(JSON.stringify(s));
             if (historyStack.length > MAX_HISTORY) historyStack.shift();
         }
 
         function undo() {
             if (historyStack.length === 0) { showStatus("No more steps"); return; }
-            
             const prevState = JSON.parse(historyStack.pop());
-            // Re-initialize completely with the saved layout
             initNetwork(prevState.nodes, prevState.edges, prevState.layout);
             saveSession();
             showStatus("Undo successful");
@@ -344,13 +416,10 @@
             if (!initialState) return;
             if (confirm("Reset to original state?")) {
                 const s = JSON.parse(initialState);
-                // Reset defaults to Board layout as per generation
                 let initialEdges = s.edges;
-                // Force lines hidden if reverting to Board default
                 if(s.layout === 'Board' || !s.layout) {
                     initialEdges = initialEdges.map(e => ({...e, hidden: true}));
                 }
-                
                 initNetwork(s.nodes, initialEdges, 'Board');
                 historyStack = [];
                 saveSession();
@@ -395,38 +464,30 @@
                 for (let d = depth + 1; d <= 10; d++) delete lastNodeByLevel[d];
             }
 
-            // Save Initial State for Reset
             initialState = JSON.stringify({ nodes: nodes, edges: edges, layout: 'Board' });
-            
-            // Start as Board (Hide edges)
             initNetwork(nodes, edges.map(e => ({...e, hidden: true})), 'Board');
             saveSession();
         }
 
-        // --- Other Logic (Selection, Edit, Etc) ---
+        // --- Other Logic ---
         function attachEvents() {
             network.on("selectNode", () => { if(currentAction) return; document.getElementById('contextToolbar').style.display = 'flex'; document.getElementById('edgeToolbar').style.display = 'none'; });
             network.on("deselectNode", () => document.getElementById('contextToolbar').style.display = 'none');
             network.on("click", (params) => { if (currentAction === 'connect' && params.nodes.length > 0) { finalizeConnect(actionSourceId, params.nodes[0]); } else if (params.nodes.length === 0) { cancelAction(); } });
             network.on("doubleClick", (params) => { if(params.nodes.length > 0) editNodeText(); });
 
-            // Board Drag Logic
             network.on("dragEnd", function (params) {
                 if (currentLayout !== 'Board' || params.nodes.length === 0) { saveSession(); return; }
                 saveHistory();
                 const selectedIds = params.nodes; const firstId = selectedIds[0];
                 const newPos = network.getPositions([firstId])[firstId];
-                
                 const allNodes = nodesDS.get();
                 let columns = allNodes.filter(n => n.level === 1);
                 columns.sort((a,b) => a.x - b.x);
-                
                 let targetCol = null; let minDist = Infinity;
                 const COLUMN_SNAP_DIST = 180;
-
                 columns.forEach(col => { const dist = Math.abs(col.x - newPos.x); if(dist < minDist) { minDist = dist; targetCol = col; } });
                 const rootId = 1;
-                
                 selectedIds.forEach(nodeId => {
                     if (nodeId === rootId) return;
                     const pos = network.getPositions([nodeId])[nodeId];
@@ -457,18 +518,11 @@
             else { edgesDS.add({from: newParentId, to: childId, hidden: true}); }
         }
 
-        function setupBoxSelection() {
-            const container = document.getElementById('mynetwork'); const box = document.getElementById('selectionBox'); let isSelecting = false; let startX, startY;
-            container.addEventListener('mousedown', function(e) { if (e.ctrlKey || e.metaKey) { isSelecting = true; const rect = container.getBoundingClientRect(); startX = e.clientX - rect.left; startY = e.clientY - rect.top; box.style.left = startX + 'px'; box.style.top = startY + 'px'; box.style.width = '0px'; box.style.height = '0px'; box.style.display = 'block'; network.setOptions({ interaction: { dragView: false, dragNodes: false } }); } });
-            window.addEventListener('mousemove', function(e) { if (!isSelecting) return; const rect = container.getBoundingClientRect(); const currentX = e.clientX - rect.left; const currentY = e.clientY - rect.top; box.style.width = Math.abs(currentX - startX) + 'px'; box.style.height = Math.abs(currentY - startY) + 'px'; box.style.left = Math.min(currentX, startX) + 'px'; box.style.top = Math.min(currentY, startY) + 'px'; });
-            window.addEventListener('mouseup', function(e) { if (!isSelecting) return; isSelecting = false; box.style.display = 'none'; network.setOptions({ interaction: { dragView: true, dragNodes: true } }); const rect = container.getBoundingClientRect(); const endX = e.clientX - rect.left; const endY = e.clientY - rect.top; const selectRect = { left: Math.min(startX, endX), top: Math.min(startY, endY), right: Math.max(startX, endX), bottom: Math.max(startY, endY) }; const nodeIds = nodesDS.getIds(); const selectedNodes = []; nodeIds.forEach(id => { const pos = network.canvasToDOM(network.getPositions([id])[id]); if (pos.x >= selectRect.left && pos.x <= selectRect.right && pos.y >= selectRect.top && pos.y <= selectRect.bottom) { selectedNodes.push(id); } }); if(selectedNodes.length > 0) { network.selectNodes(selectedNodes); document.getElementById('contextToolbar').style.display = 'flex'; } });
-        }
-
-        function createNewProject() { if(confirm("Start a new project?")) { document.getElementById('inputText').value = ""; initNetwork([{id:1, label:'Main Topic', level:0, color:{background:'#FFD1DC'}}], [], 'Board'); historyStack = []; localStorage.removeItem('mindMapSessionV5_9'); showStatus("New Project Created ✨"); } }
+        function createNewProject() { if(confirm("Start a new project?")) { document.getElementById('inputText').value = ""; initNetwork([{id:1, label:'Main Topic', level:0, color:{background:'#FFD1DC'}}], [], 'Board'); historyStack = []; localStorage.removeItem('mindMapSessionV6_0'); showStatus("New Project Created ✨"); } }
         function toggleTheme() { isDarkMode = !isDarkMode; document.documentElement.setAttribute('data-theme', isDarkMode ? 'dark' : 'light'); localStorage.setItem('theme', isDarkMode ? 'dark' : 'light'); }
         function showStatus(m) { const el = document.getElementById('statusMessage'); el.innerText = m; el.style.opacity = m ? 1 : 0; if(m) setTimeout(() => el.style.opacity = 0, 3000); }
-        function saveSession() { const d = { text: document.getElementById('inputText').value, nodes: nodesDS.get(), edges: edgesDS.get(), layout: currentLayout }; localStorage.setItem('mindMapSessionV5_9', JSON.stringify(d)); }
-        function restoreSession() { const s = localStorage.getItem('mindMapSessionV5_9'); if(s) { try { const d = JSON.parse(s); document.getElementById('inputText').value = d.text||""; initNetwork(d.nodes, d.edges, d.layout || 'Board'); } catch(e){} } }
+        function saveSession() { const d = { text: document.getElementById('inputText').value, nodes: nodesDS.get(), edges: edgesDS.get(), layout: currentLayout }; localStorage.setItem('mindMapSessionV6_0', JSON.stringify(d)); }
+        function restoreSession() { const s = localStorage.getItem('mindMapSessionV6_0'); if(s) { try { const d = JSON.parse(s); document.getElementById('inputText').value = d.text||""; initNetwork(d.nodes, d.edges, d.layout || 'Board'); } catch(e){} } }
         function exportProject() { const data = { nodes: nodesDS.get(), edges: edgesDS.get(), text: document.getElementById('inputText').value, layout: currentLayout }; const blob = new Blob([JSON.stringify(data)], {type: "application/json"}); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = "mindmap_project.json"; a.click(); showStatus("Project Saved! 💾"); }
         function importProject(event) { const file = event.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = function(e) { try { const data = JSON.parse(e.target.result); if(data.text) document.getElementById('inputText').value = data.text; initNetwork(data.nodes, data.edges, data.layout || 'Board'); showStatus("Project Loaded! 📂"); } catch(err) { alert("Error loading file."); } }; reader.readAsText(file); event.target.value = ''; }
         function copySelected() { const ids = network.getSelectedNodes(); if(ids.length > 0) clipboard = nodesDS.get(ids); showStatus(`Copied ${ids.length} nodes`); }
