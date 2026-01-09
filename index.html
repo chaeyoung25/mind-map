@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Mind Map (v4.0 Pro)</title>
+    <title>AI Mind Map (v4.1 Logic)</title>
     <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -21,22 +21,15 @@
             --warning-color: #FF9500;
             --radius: 12px;
             --shadow: 0 4px 24px rgba(0,0,0,0.08);
-            
-            /* Node Colors */
-            --node-root: #FFD1DC;    /* Pink */
-            --node-middle: #CDF0EA;  /* Mint */
-            --node-small: #FFFFFF;   /* White */
         }
 
+        /* Dark Mode: Background dark, but NODES stay pastel */
         [data-theme="dark"] {
             --bg-color: #191919;
             --panel-bg: rgba(40, 40, 40, 0.95);
             --text-color: #F5F5F7;
             --border-color: rgba(255, 255, 255, 0.15);
             --accent-color: #0A84FF;
-            --node-root: #E85D75;
-            --node-middle: #4D96FF;
-            --node-small: #2C2C2E; 
         }
 
         body { 
@@ -127,16 +120,16 @@
             </div>
 
             <label style="font-size:0.85rem; font-weight:600; color:var(--text-color); margin-bottom:6px; display:block;">Smart Text Input:</label>
-            <textarea id="inputText" placeholder="Paste your lengthy sermon or lecture notes here. The AI engine will automatically structure it based on paragraphs, numbers (1., 2.), and keywords."></textarea>
+            <textarea id="inputText" placeholder="Paste your sermon content here. The AI will detect Q&A, numbers, and logical structure automatically."></textarea>
             
-            <button class="btn btn-primary" onclick="processData()">✨ Auto-Structure Mind Map</button>
+            <button class="btn btn-primary" onclick="processData()">✨ Smart Structure Mind Map</button>
 
             <div style="margin-top:auto;">
                 <p style="font-size:0.75rem; opacity:0.6; line-height:1.5; margin-bottom:0;">
-                    * <b>Smart Parsing:</b> Detects 1., 2., Q:, A:<br>
-                    * <b>Auto-Hierarchy:</b> Title > Section > Detail
+                    * <b>Auto Grouping:</b> Q&A sets, numbered lists.<br>
+                    * <b>Colors:</b> Pastel Fixed (Even in Dark Mode).
                 </p>
-                <div class="version-tag">Version 4.0 Pro</div>
+                <div class="version-tag">Version 4.1</div>
             </div>
         </div>
 
@@ -188,10 +181,19 @@
         let isBoardMode = false;
 
         const BOARD_CONFIG = {
-            colWidth: 230,   
-            cardGap: 85,    
+            colWidth: 260,   
+            cardGap: 80,    
             headerY: -300,
-            indent: 20
+            indent: 25
+        };
+
+        // 🔥 FIXED PASTEL COLORS (Forced) 🔥
+        const PASTEL_COLORS = {
+            root: { bg: '#FFD1DC', border: '#FFB7C5' },    // Pink
+            middle: { bg: '#CDF0EA', border: '#A6E3D9' },  // Mint
+            group: { bg: '#FFF5DA', border: '#FFE6A7' },   // Pale Yellow (For Group Headers like Q&A)
+            small: { bg: '#FFFFFF', border: '#E0E0E0' },   // White
+            qna: { bg: '#E2F0CB', border: '#C7E59B' }      // Light Green (For Answers)
         };
 
         window.onload = function() {
@@ -214,21 +216,14 @@
         }
 
         function undo() {
-            if(historyStack.length === 0) { showStatus("No more steps to undo"); return; }
+            if(historyStack.length === 0) { showStatus("No more steps"); return; }
             isRestoring = true;
             const prevStateJSON = historyStack.pop();
             const prevState = JSON.parse(prevStateJSON);
-            
-            network.setData({
-                nodes: new vis.DataSet(prevState.nodes), 
-                edges: new vis.DataSet(prevState.edges)
-            });
+            network.setData({ nodes: new vis.DataSet(prevState.nodes), edges: new vis.DataSet(prevState.edges) });
             saveSession();
-            if(isBoardMode) {
-                setTimeout(() => { toggleEdges(false); layoutBoard(); isRestoring = false; }, 50);
-            } else {
-                isRestoring = false;
-            }
+            if(isBoardMode) setTimeout(() => { toggleEdges(false); layoutBoard(); isRestoring = false; }, 50);
+            else isRestoring = false;
             showStatus("Undo successful");
         }
 
@@ -246,17 +241,12 @@
             }
         }
 
-        // 🔥 v4.0 SMART PARSING ENGINE 🔥
+        // 🔥 v4.1 ADVANCED LOGIC PARSER 🔥
         function processData() {
             const text = document.getElementById('inputText').value;
             if(!text.trim()) { alert("Please input text."); return; }
 
             historyStack = [];
-            const style = getComputedStyle(document.documentElement);
-            const colRoot = style.getPropertyValue('--node-root').trim();
-            const colMiddle = style.getPropertyValue('--node-middle').trim();
-            const colSmall = style.getPropertyValue('--node-sentence').trim();
-
             let nodes = [];
             let edges = [];
             let nodeId = 1;
@@ -264,70 +254,107 @@
             // 1. Analyze Lines
             const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
             
-            // 2. Extract Main Topic (First Line)
+            // 2. Main Topic (Level 0)
             let mainTopic = lines[0];
             if(mainTopic.length > 50) mainTopic = mainTopic.substring(0, 50) + "...";
             
-            nodes.push({id: 1, label: mainTopic, color: colRoot, shape:'box', font:{size:24, face:'Pretendard', color:'#333'}, level:0});
+            nodes.push({
+                id: 1, label: mainTopic, 
+                color: { background: PASTEL_COLORS.root.bg, border: PASTEL_COLORS.root.border },
+                shape:'box', font:{size:24, face:'Pretendard', color:'#333', bold:true}, 
+                level:0
+            });
             
-            let currentMiddleId = 1; // Default parent is Root
-            let currentSmallId = null;
+            let currentBigGroupId = 1; // Level 1 (e.g. 1. 서론)
+            let currentMidGroupId = 1; // Level 2 (e.g. 첫째,)
+            let currentQnAGroupId = null; // Container for Q&A
 
-            // Regex for detection
-            const reNumber = /^(?:[\d]+[\.|)]|[A-Z][\.|)]|첫째|둘째|셋째|넷째|마지막으로|결론|Q:|A:|\[)/; 
-            
-            // 3. Process remaining lines
+            // Regex Patterns
+            const reBigGroup = /^([0-9]+\.|[IVX]+\.|서론|본론|결론|\[맺음말\])/; // 1. , 2. , Conclusion
+            const reMidGroup = /^(첫째|둘째|셋째|넷째|마지막으로)/; // First, Second...
+            const reQA = /^(Q[:\.]|A[:\.]|질문:|답변:|문:|답:)/i;
+
             for (let i = 1; i < lines.length; i++) {
                 let line = lines[i];
-                let isMiddleGroup = false;
+                let labelText = line.length > 50 ? line.substring(0, 50) + "..." : line;
+                let newNode = null;
+                let parentId = 1;
 
-                // Heuristic: Is this a header?
-                // Logic: Starts with number/keyword OR is short and doesn't end with punctuation
-                if (reNumber.test(line) || (line.length < 40 && !line.endsWith('.') && !line.endsWith('다'))) {
-                    isMiddleGroup = true;
+                // Case A: Big Group (Level 1) -> 중그룹 (1., 2., 3...)
+                if (reBigGroup.test(line)) {
+                    nodeId++;
+                    newNode = {
+                        id: nodeId, label: labelText, title: line,
+                        color: { background: PASTEL_COLORS.middle.bg, border: PASTEL_COLORS.middle.border },
+                        shape: 'box', font: {size:18, color:'#333', bold:true}, level: 1, widthConstraint:{maximum:250}
+                    };
+                    parentId = 1; // Attach to Root
+                    currentBigGroupId = nodeId;
+                    currentMidGroupId = nodeId; // Reset middle pointer
+                    currentQnAGroupId = null; // Reset Q&A
                 }
-
-                // Create Node
-                nodeId++;
-                let labelText = line.length > 60 ? line.substring(0, 60) + "..." : line;
-                
-                if (isMiddleGroup) {
-                    // Create Middle Group (Level 1)
-                    nodes.push({
+                // Case B: Middle Group (Level 2) -> 소그룹 (첫째, 둘째...)
+                else if (reMidGroup.test(line)) {
+                    nodeId++;
+                    newNode = {
                         id: nodeId, label: labelText, title: line,
-                        color: colMiddle, shape: 'box', 
-                        font: {size:16, face:'Pretendard', bold:true, color:'#333'}, 
-                        level: 1, widthConstraint:{maximum:250}
-                    });
-                    edges.push({from: 1, to: nodeId}); // Link to Root
-                    currentMiddleId = nodeId; // Set as current parent
-                    currentSmallId = null;
-                } else {
-                    // Create Small Group (Level 2)
-                    nodes.push({
-                        id: nodeId, label: labelText, title: line,
-                        color: colSmall, shape: 'box', 
-                        font: {size:14, face:'Pretendard', color:'#333'}, 
-                        level: 2, widthConstraint:{maximum:300}
-                    });
+                        color: { background: PASTEL_COLORS.group.bg, border: PASTEL_COLORS.group.border },
+                        shape: 'box', font: {size:16, color:'#333', bold:true}, level: 2, widthConstraint:{maximum:250}
+                    };
+                    parentId = currentBigGroupId;
+                    currentMidGroupId = nodeId;
+                    currentQnAGroupId = null;
+                }
+                // Case C: Q&A Logic (Special Grouping)
+                else if (reQA.test(line)) {
+                    // Check if we need to create a "Q&A Container" first
+                    if (!currentQnAGroupId) {
+                        nodeId++;
+                        let qnaContainerNode = {
+                            id: nodeId, label: "질문과 답변 (Q&A)", 
+                            color: { background: PASTEL_COLORS.group.bg, border: PASTEL_COLORS.group.border },
+                            shape: 'box', font: {size:16, color:'#333', bold:true}, level: 2
+                        };
+                        nodes.push(qnaContainerNode);
+                        edges.push({from: currentBigGroupId, to: nodeId});
+                        currentQnAGroupId = nodeId;
+                        currentMidGroupId = nodeId; // Q&A becomes the active context
+                    }
                     
-                    // Link to current Middle Group (or Root if none exists yet)
-                    edges.push({from: currentMiddleId, to: nodeId});
-                    currentSmallId = nodeId;
+                    nodeId++;
+                    // Q/A Nodes
+                    newNode = {
+                        id: nodeId, label: labelText, title: line,
+                        color: { background: PASTEL_COLORS.qna.bg, border: PASTEL_COLORS.qna.border },
+                        shape: 'box', font: {size:14, color:'#333'}, level: 3, widthConstraint:{maximum:300}
+                    };
+                    parentId = currentQnAGroupId;
                 }
+                // Case D: Detail Text (Level 3 or 4) -> Just attach to whatever is current
+                else {
+                    nodeId++;
+                    newNode = {
+                        id: nodeId, label: labelText, title: line,
+                        color: { background: PASTEL_COLORS.small.bg, border: PASTEL_COLORS.small.border },
+                        shape: 'box', font: {size:14, color:'#333'}, level: 3, widthConstraint:{maximum:300}
+                    };
+                    parentId = currentMidGroupId;
+                }
+
+                nodes.push(newNode);
+                edges.push({from: parentId, to: nodeId});
             }
 
             drawMap(nodes, edges);
             initialState = JSON.stringify({nodes: nodes, edges: edges});
             saveSession();
-            showStatus(`Generated ${nodes.length} nodes automatically!`);
         }
 
         function drawMap(nodesData, edgesData) {
             const container = document.getElementById('mynetwork');
             const data = { nodes: new vis.DataSet(nodesData), edges: new vis.DataSet(edgesData) };
             const options = {
-                nodes: { shape: 'box', margin: 12, borderWidth: 0, shadow: true, font: { face: 'Pretendard', color:'#333' } },
+                nodes: { shape: 'box', margin: 12, borderWidth: 1, shadow: true, font: { face: 'Pretendard', color:'#333' } },
                 edges: { color: '#B0B0B0', width: 2, smooth: { type: 'cubicBezier', forceDirection: 'vertical', roundness: 0.4 } },
                 layout: { hierarchical: { enabled: true, direction: "UD", sortMethod: "hubsize", levelSeparation: 160, nodeSpacing: 180 } },
                 physics: false,
@@ -362,15 +389,15 @@
 
             network.on("doubleClick", (params) => { if(params.nodes.length > 0) editNodeText(); });
             
-            // Drag End Logic (v3.4 Logic Integrated)
+            // Drag End Logic (Board)
             network.on("dragEnd", function (params) {
                 if (!isBoardMode || params.nodes.length === 0) { saveSession(); return; }
                 saveHistory();
-                
                 const selectedIds = params.nodes;
                 const nodesDS = network.body.data.nodes;
                 const edgesDS = network.body.data.edges;
                 const rootId = 1;
+                
                 const dragHeadId = selectedIds[0];
                 const headPos = network.getPositions([dragHeadId])[dragHeadId];
                 
@@ -405,7 +432,6 @@
             });
         }
 
-        // Recursively update levels
         function updateSubtreeLevels(rootId, newBaseLevel, nodesDS, edgesDS) {
             nodesDS.update({id: rootId, level: newBaseLevel});
             const allEdges = edgesDS.get();
@@ -430,7 +456,7 @@
             }
         }
 
-        // --- Actions (Standard) ---
+        // --- Standard Actions ---
         function getSelectedNode() { const ids = network.getSelectedNodes(); return ids.length > 0 ? ids[0] : null; }
         
         function addChildNode() {
@@ -439,10 +465,14 @@
             if(l) {
                 saveHistory();
                 const nid = Date.now();
-                const style = getComputedStyle(document.documentElement);
                 const parentNode = network.body.data.nodes.get(pid);
                 const newLevel = (parentNode.level || 0) + 1;
-                network.body.data.nodes.add({id: nid, label: l, shape:'box', color: style.getPropertyValue('--node-sentence').trim(), font:{color:'#333'}, level: newLevel});
+                // Force pastel white for user added nodes
+                network.body.data.nodes.add({
+                    id: nid, label: l, shape:'box', 
+                    color: { background: '#FFFFFF', border: '#E0E0E0' }, 
+                    font:{color:'#333'}, level: newLevel
+                });
                 network.body.data.edges.add({from: pid, to: nid, hidden: isBoardMode});
                 saveSession();
                 if(isBoardMode) setTimeout(layoutBoard, 50);
@@ -494,14 +524,13 @@
             finishAction(src); showStatus("Linked!");
         }
         function finishAction(sid) {
-            network.body.data.nodes.update({id: sid, borderWidth: 0, color: null});
-            network.body.data.nodes.update({id: sid, borderWidth: 0});
+            network.body.data.nodes.update({id: sid, borderWidth: 1, color: null}); // Reset border
             currentAction = null; actionSourceId = null;
             document.body.style.cursor = "default";
             saveSession();
         }
         function cancelAction() {
-            if (actionSourceId) network.body.data.nodes.update({id: actionSourceId, borderWidth: 0});
+            if (actionSourceId) network.body.data.nodes.update({id: actionSourceId, borderWidth: 1});
             currentAction = null; actionSourceId = null;
             document.body.style.cursor = "default"; showStatus("");
         }
@@ -599,16 +628,16 @@
         function saveSession() {
             if(!network) return;
             const d = { text: document.getElementById('inputText').value, nodes: network.body.data.nodes.get(), edges: network.body.data.edges.get(), initialState: initialState };
-            localStorage.setItem('mindMapSessionV4_0', JSON.stringify(d));
+            localStorage.setItem('mindMapSessionV4_1', JSON.stringify(d));
         }
         function restoreSession() {
-            const s = localStorage.getItem('mindMapSessionV4_0');
+            const s = localStorage.getItem('mindMapSessionV4_1');
             if(s) { try { const d = JSON.parse(s); document.getElementById('inputText').value = d.text||""; initialState = d.initialState; drawMap(d.nodes, d.edges); } catch(e){} }
         }
         function saveProject() { if(!network) return; const d = { nodes: network.body.data.nodes.get(), edges: network.body.data.edges.get() }; const b = new Blob([JSON.stringify(d)], {type:"text/json"}); const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = "mindmap.json"; a.click(); }
         function loadProject(e) { const r = new FileReader(); r.onload = function(evt) { const d = JSON.parse(evt.target.result); drawMap(d.nodes, d.edges); }; r.readAsText(e.target.files[0]); }
         async function exportMap(t) { const el = document.getElementById('mynetwork'); const c = await html2canvas(el); const l = document.createElement('a'); l.download = 'mindmap.png'; l.href = c.toDataURL(); l.click(); }
-        async function exportWord() { const el = document.getElementById('mynetwork'); const bg = el.style.backgroundColor; el.style.backgroundColor = "#fff"; const c = await html2canvas(el); const d = c.toDataURL('image/png'); el.style.backgroundColor = bg; const h = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Export</title></head><body><h1>Mind Map</h1><br><img src="${d}" style="width:100%"><br><p>v4.0</p></body></html>`; const b = new Blob(['\ufeff', h], { type: 'application/msword' }); const l = document.createElement('a'); l.href = URL.createObjectURL(b); l.download = 'mindmap.doc'; l.click(); }
+        async function exportWord() { const el = document.getElementById('mynetwork'); const bg = el.style.backgroundColor; el.style.backgroundColor = "#fff"; const c = await html2canvas(el); const d = c.toDataURL('image/png'); el.style.backgroundColor = bg; const h = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Export</title></head><body><h1>Mind Map</h1><br><img src="${d}" style="width:100%"><br><p>v4.1</p></body></html>`; const b = new Blob(['\ufeff', h], { type: 'application/msword' }); const l = document.createElement('a'); l.href = URL.createObjectURL(b); l.download = 'mindmap.doc'; l.click(); }
     </script>
 </body>
 </html>
