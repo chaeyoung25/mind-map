@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Mind Map (v2.6)</title>
+    <title>AI Mind Map (v2.7)</title>
     <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -22,7 +22,7 @@
             --radius: 12px;
             --shadow: 0 4px 24px rgba(0,0,0,0.08);
             
-            /* Node Colors (Always Pastel) */
+            /* Node Colors (Pastel) */
             --node-root: #FFE4E1;    
             --node-keyword: #E0F7FA; 
             --node-sentence: #FFFFFF; 
@@ -142,10 +142,10 @@
 
             <div style="margin-top:auto;">
                 <p style="font-size:0.75rem; opacity:0.6; line-height:1.5; margin-bottom:0;">
-                    * <b>Multi-Select:</b> Hold <b>Ctrl</b> (or Cmd) + Click/Drag.<br>
-                    * <b>Board View:</b> Move single or groups freely.
+                    * <b>Multi-Select:</b> Ctrl+Click or Drag Area.<br>
+                    * <b>Board View:</b> Drag any group anywhere.
                 </p>
-                <div class="version-tag">Version 2.6</div>
+                <div class="version-tag">Version 2.7</div>
             </div>
         </div>
 
@@ -234,6 +234,7 @@
             if(isBoardMode) {
                 setTimeout(() => {
                     toggleEdges(false);
+                    layoutBoard();
                     isRestoring = false; 
                 }, 50);
             } else {
@@ -315,7 +316,7 @@
                 edges: { color: '#B0B0B0', width: 2, smooth: { type: 'cubicBezier', forceDirection: 'vertical', roundness: 0.4 } },
                 layout: { hierarchical: { enabled: true, direction: "UD", sortMethod: "hubsize", levelSeparation: 160, nodeSpacing: 180 } },
                 physics: false,
-                // 🔥 Enabled multiselect for Ctrl+Click & Box Selection
+                // 🔥 Multiselect Enabled + Drag View enabled for box selection
                 interaction: { hover: true, selectConnectedEdges: false, multiselect: true, dragView: true }
             };
 
@@ -341,14 +342,13 @@
                     const targetId = params.nodes[0];
                     if (targetId !== actionSourceId) {
                         if (currentAction === 'connect') finalizeConnect(actionSourceId, targetId);
-                        // Removed 'move' from here as dragEnd handles it better for groups
                     }
                 } else if (params.nodes.length === 0) cancelAction();
             });
 
             network.on("doubleClick", (params) => { if(params.nodes.length > 0) editNodeText(); });
             
-            // 🔥 ADVANCED GROUP DRAG LOGIC v2.6 🔥
+            // 🔥 FIXED V2.7 DRAG END LOGIC 🔥
             network.on("dragEnd", function (params) {
                 if (isBoardMode && params.nodes.length > 0) {
                     saveHistory();
@@ -359,22 +359,22 @@
                     
                     // Identify columns (Level 1)
                     let columns = nodes.filter(n => { return edges.some(e => e.from === rootId && e.to === n.id); });
-                    
-                    // Iterate through ALL selected nodes (Support Group Move)
+                    if(columns.length === 0) columns = nodes.filter(n => n.level === 1); // Fallback
+
+                    // Handle Multi-Select Drag
                     const selectedIds = network.getSelectedNodes();
                     
                     selectedIds.forEach(draggedNodeId => {
                         const draggedPos = network.getPositions([draggedNodeId])[draggedNodeId];
                         
-                        // 1. Save new visual position immediately for sorting
+                        // 1. Immediately update visual position
                         network.body.data.nodes.update({id: draggedNodeId, x: draggedPos.x, y: draggedPos.y});
 
                         const draggedNodeData = nodes.find(n => n.id === draggedNodeId);
                         const isHeader = draggedNodeData && draggedNodeData.level === 1;
 
                         if (isHeader) {
-                            // Moving a header? Move it and its children follow in layout
-                            // No reparenting needed, just X pos update
+                            // Moving a header? Just update pos, layout will resort columns
                         } 
                         else if (draggedPos.y < BOARD_CONFIG.headerY - 50) {
                             // Promote to Header
@@ -382,7 +382,7 @@
                             reParentNode(draggedNodeId, rootId, edges);
                         } 
                         else {
-                            // Find nearest column
+                            // Snap to nearest column
                             let nearestCol = null;
                             let minDistance = Infinity;
                             columns.forEach(col => {
@@ -391,7 +391,6 @@
                             });
 
                             if (nearestCol && nearestCol.id !== draggedNodeId && draggedNodeId !== rootId) {
-                                // Re-parent node
                                 reParentNode(draggedNodeId, nearestCol.id, edges);
                             }
                         }
@@ -470,11 +469,6 @@
             saveSession();
         }
         
-        // Removed startMove as we rely on Drag-Drop for groups now
-        function startMove() {
-             showStatus("ℹ️ Tip: Just drag nodes (Hold Ctrl for multiple)");
-        }
-
         function startConnect() {
             const id = getSelectedNode(); if(!id) return;
             currentAction = 'connect'; actionSourceId = id;
@@ -543,7 +537,10 @@
             const allNodes = nodes.get();
             const allEdges = edges.get();
 
+            if (allNodes.length === 0) return;
+
             let columns = allNodes.filter(n => { return edges.some(e => e.from === rootId && e.to === n.id); });
+            // Sort Columns by X
             columns.sort((a,b) => (a.x || 0) - (b.x || 0));
 
             const startX = -((columns.length * BOARD_CONFIG.colWidth) / 2) + (BOARD_CONFIG.colWidth/2);
@@ -559,7 +556,7 @@
                 let stack = [];
                 function collectDescendants(parentId) {
                     let children = allNodes.filter(n => allEdges.some(e => e.from === parentId && e.to === n.id));
-                    // Sort by Y for drag order - V2.6 FIX: Prioritize updated Y
+                    // Sort by Y for drag order
                     children.sort((a,b) => (a.y || 0) - (b.y || 0));
                     
                     children.forEach(child => {
@@ -598,16 +595,16 @@
         function saveSession() {
             if(!network) return;
             const d = { text: document.getElementById('inputText').value, nodes: network.body.data.nodes.get(), edges: network.body.data.edges.get(), initialState: initialState };
-            localStorage.setItem('mindMapSessionV2_6', JSON.stringify(d));
+            localStorage.setItem('mindMapSessionV2_7', JSON.stringify(d));
         }
         function restoreSession() {
-            const s = localStorage.getItem('mindMapSessionV2_6');
+            const s = localStorage.getItem('mindMapSessionV2_7');
             if(s) { try { const d = JSON.parse(s); document.getElementById('inputText').value = d.text||""; initialState = d.initialState; drawMap(d.nodes, d.edges); } catch(e){} }
         }
         function saveProject() { if(!network) return; const d = { nodes: network.body.data.nodes.get(), edges: network.body.data.edges.get() }; const b = new Blob([JSON.stringify(d)], {type:"text/json"}); const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = "mindmap.json"; a.click(); }
         function loadProject(e) { const r = new FileReader(); r.onload = function(evt) { const d = JSON.parse(evt.target.result); drawMap(d.nodes, d.edges); }; r.readAsText(e.target.files[0]); }
         async function exportMap(t) { const el = document.getElementById('mynetwork'); const c = await html2canvas(el); const l = document.createElement('a'); l.download = 'mindmap.png'; l.href = c.toDataURL(); l.click(); }
-        async function exportWord() { const el = document.getElementById('mynetwork'); const bg = el.style.backgroundColor; el.style.backgroundColor = "#fff"; const c = await html2canvas(el); const d = c.toDataURL('image/png'); el.style.backgroundColor = bg; const h = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Export</title></head><body><h1>Mind Map</h1><br><img src="${d}" style="width:100%"><br><p>v2.6</p></body></html>`; const b = new Blob(['\ufeff', h], { type: 'application/msword' }); const l = document.createElement('a'); l.href = URL.createObjectURL(b); l.download = 'mindmap.doc'; l.click(); }
+        async function exportWord() { const el = document.getElementById('mynetwork'); const bg = el.style.backgroundColor; el.style.backgroundColor = "#fff"; const c = await html2canvas(el); const d = c.toDataURL('image/png'); el.style.backgroundColor = bg; const h = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Export</title></head><body><h1>Mind Map</h1><br><img src="${d}" style="width:100%"><br><p>v2.7</p></body></html>`; const b = new Blob(['\ufeff', h], { type: 'application/msword' }); const l = document.createElement('a'); l.href = URL.createObjectURL(b); l.download = 'mindmap.doc'; l.click(); }
     </script>
 </body>
 </html>
