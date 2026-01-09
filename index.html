@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Mind Map (v5.1 Stable)</title>
+    <title>AI Mind Map (v5.2 Non-Stop)</title>
     <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -17,7 +17,7 @@
             --border-color: rgba(0, 0, 0, 0.1);
             --accent-color: #007AFF;
             --danger-color: #FF3B30;
-            --selection-blue: rgba(0, 122, 255, 0.2);
+            --selection-blue: rgba(0, 122, 255, 0.15);
             --selection-border: #007AFF;
         }
 
@@ -138,11 +138,10 @@
 
             <div style="margin-top:auto;">
                 <p style="font-size:0.75rem; opacity:0.6; line-height:1.5; margin-bottom:0;">
-                    * <b>Multi-Select:</b> Ctrl + Drag<br>
-                    * <b>Layouts:</b> Free/Board Fixed.<br>
-                    * <b>Structure:</b> Auto-aligns like OneNote.
+                    * <b>Free Layout:</b> Smooth & Fast.<br>
+                    * <b>Board:</b> Auto-aligns perfectly.
                 </p>
-                <div class="version-tag">Version 5.1</div>
+                <div class="version-tag">Version 5.2 (No-Freeze)</div>
             </div>
         </div>
 
@@ -223,17 +222,16 @@
             if(localStorage.getItem('theme') === 'dark') toggleTheme();
             
             // Check session
-            if(localStorage.getItem('mindMapSessionV5_1')) {
+            if(localStorage.getItem('mindMapSessionV5_2')) {
                 restoreSession();
             } else {
                 drawMap([{id:1, label:'Main Topic', level:0, color:{background:'#FFD1DC'}}], []);
             }
-            
             setupKeyboardShortcuts();
             setupBoxSelection();
         };
 
-        // --- Box Selection Logic ---
+        // --- Box Selection ---
         function setupBoxSelection() {
             const container = document.getElementById('mynetwork');
             const box = document.getElementById('selectionBox');
@@ -311,33 +309,33 @@
 
         // --- New Project ---
         function createNewProject() {
-            if(confirm("Start a new project? Unsaved changes will be lost.")) {
+            if(confirm("Start a new project?")) {
                 document.getElementById('inputText').value = "";
                 drawMap([{id:1, label:'Main Topic', level:0, color:{background:'#FFD1DC'}}], []);
                 historyStack = [];
-                localStorage.removeItem('mindMapSessionV5_1');
+                localStorage.removeItem('mindMapSessionV5_2');
                 showStatus("New Project Created ✨");
             }
         }
 
-        // --- Layout Switching (CRITICAL FIX v5.1) ---
+        // --- Layout Switching (CRITICAL FIX v5.2) ---
         function setLayout(type) {
             saveHistory();
             if (!network) return;
 
-            // 1. Force Stop any running physics FIRST
-            network.setOptions({ physics: { enabled: false } });
+            // 1. Force STOP everything (Kill Switch)
             network.stopSimulation();
+            network.setOptions({ physics: false, layout: { hierarchical: false } });
 
-            // 2. Unlock all nodes (Remove fixed state from previous Board layout)
+            // 2. Release Locks on ALL nodes
             const allNodes = network.body.data.nodes.get();
-            const updates = allNodes.map(n => ({id: n.id, fixed: false}));
-            network.body.data.nodes.update(updates);
+            const unlockUpdates = allNodes.map(n => ({id: n.id, fixed: false}));
+            network.body.data.nodes.update(unlockUpdates);
 
             if (type === 'Board') {
                 isBoardMode = true;
                 toggleEdges(false);
-                layoutBoard(); // Manual calculation
+                layoutBoard(); // Manual calc
                 showStatus("Board Layout");
                 return;
             }
@@ -346,34 +344,46 @@
             isBoardMode = false;
             toggleEdges(true);
 
-            let options = { physics: { enabled: false } };
+            let options = {};
 
             if (type === 'UD') {
-                options.layout = { hierarchical: { enabled: true, direction: "UD", levelSeparation: 150, sortMethod: 'hubsize' } };
+                options = { 
+                    layout: { hierarchical: { enabled: true, direction: "UD", levelSeparation: 150, sortMethod: 'hubsize' } },
+                    physics: false
+                };
             } else if (type === 'LR') {
-                options.layout = { hierarchical: { enabled: true, direction: "LR", levelSeparation: 200, sortMethod: 'hubsize' } };
+                options = { 
+                    layout: { hierarchical: { enabled: true, direction: "LR", levelSeparation: 200, sortMethod: 'hubsize' } },
+                    physics: false
+                };
             } else { 
-                // ✨ Free Layout: Reset Coordinates & Enable Physics
-                options.layout = { hierarchical: { enabled: false } };
-                
-                // Clear X/Y so physics can explode them out
+                // ✨ Free Layout: Non-blocking Physics
+                // 1. Clear coordinates so nodes are free to move
                 const clearPos = allNodes.map(n => ({id: n.id, x: undefined, y: undefined}));
                 network.body.data.nodes.update(clearPos);
                 
-                options.physics = { 
-                    enabled: true, 
-                    solver: 'forceAtlas2Based', 
-                    stabilization: { iterations: 1000, updateInterval: 25 },
-                    timestep: 0.5,
-                    adaptiveTimestep: true
+                // 2. Enable physics but disable "stabilization" (which freezes UI)
+                options = { 
+                    layout: { hierarchical: { enabled: false } },
+                    physics: { 
+                        enabled: true, 
+                        stabilization: false, // Important: Don't freeze!
+                        solver: 'forceAtlas2Based', 
+                        timestep: 0.4
+                    }
                 };
             }
 
             network.setOptions(options);
+            
+            // Kickstart physics if Free mode
+            if (type === 'Free') network.startSimulation();
+            else network.fit();
+            
             showStatus(type + " Layout");
         }
 
-        // --- Generator Logic ---
+        // --- Generator ---
         function processData() {
             const text = document.getElementById('inputText').value;
             if(!text.trim()) { alert("Please input text."); return; }
@@ -519,7 +529,6 @@
                 
                 let targetCol = null;
                 let minDist = Infinity;
-                
                 columns.forEach(col => {
                     const dist = Math.abs(col.x - newPos.x);
                     if(dist < minDist) { minDist = dist; targetCol = col; }
@@ -678,10 +687,10 @@
         function saveSession() {
             if(!network) return;
             const d = { text: document.getElementById('inputText').value, nodes: network.body.data.nodes.get(), edges: network.body.data.edges.get(), initialState: initialState };
-            localStorage.setItem('mindMapSessionV5_1', JSON.stringify(d));
+            localStorage.setItem('mindMapSessionV5_2', JSON.stringify(d));
         }
         function restoreSession() {
-            const s = localStorage.getItem('mindMapSessionV5_1');
+            const s = localStorage.getItem('mindMapSessionV5_2');
             if(s) { try { const d = JSON.parse(s); document.getElementById('inputText').value = d.text||""; initialState = d.initialState; drawMap(d.nodes, d.edges); } catch(e){} }
         }
         function exportProject() {
@@ -817,7 +826,7 @@
             document.body.style.cursor = "default"; showStatus("");
         }
         async function exportMap(t) { const el = document.getElementById('mynetwork'); const c = await html2canvas(el); const l = document.createElement('a'); l.download = 'mindmap.png'; l.href = c.toDataURL(); l.click(); }
-        async function exportWord() { const el = document.getElementById('mynetwork'); const bg = el.style.backgroundColor; el.style.backgroundColor = "#fff"; const c = await html2canvas(el); const d = c.toDataURL('image/png'); el.style.backgroundColor = bg; const h = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Export</title></head><body><h1>Mind Map</h1><br><img src="${d}" style="width:100%"><br><p>v5.1</p></body></html>`; const b = new Blob(['\ufeff', h], { type: 'application/msword' }); const l = document.createElement('a'); l.href = URL.createObjectURL(b); l.download = 'mindmap.doc'; l.click(); }
+        async function exportWord() { const el = document.getElementById('mynetwork'); const bg = el.style.backgroundColor; el.style.backgroundColor = "#fff"; const c = await html2canvas(el); const d = c.toDataURL('image/png'); el.style.backgroundColor = bg; const h = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Export</title></head><body><h1>Mind Map</h1><br><img src="${d}" style="width:100%"><br><p>v5.2</p></body></html>`; const b = new Blob(['\ufeff', h], { type: 'application/msword' }); const l = document.createElement('a'); l.href = URL.createObjectURL(b); l.download = 'mindmap.doc'; l.click(); }
     </script>
 </body>
 </html>
