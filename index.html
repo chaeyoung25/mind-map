@@ -3,92 +3,144 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Mind Map (v1.4)</title>
+    <title>AI Mind Map (v1.5)</title>
     <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     
     <style>
+        /* --- Mac Style Pastel Theme --- */
         :root {
-            --bg-color: #F5F5F7;
-            --panel-bg: rgba(255, 255, 255, 0.95);
+            --bg-color: #F5F5F7; /* Mac System Background */
+            --panel-bg: rgba(255, 255, 255, 0.85); /* Glass effect */
             --text-color: #1D1D1F;
-            --border-color: #D2D2D7;
-            --accent-color: #007AFF;
-            --danger-color: #FF3B30;
-            --success-color: #34C759;
-            --warning-color: #FF9500;
-            --radius: 12px;
-            --shadow: 0 4px 12px rgba(0,0,0,0.08);
+            --border-color: rgba(0, 0, 0, 0.1);
             
-            --node-root: #FFD1DC;
-            --node-keyword: #C1E1C1;
-            --node-sentence: #C4DEF6;
+            /* UI Accent Colors */
+            --accent-color: #007AFF; /* Apple Blue */
+            --danger-color: #FF3B30; /* Apple Red */
+            --success-color: #34C759; /* Apple Green */
+            --warning-color: #FF9500; /* Apple Orange */
+            
+            --radius: 14px;
+            --shadow: 0 4px 20px rgba(0,0,0,0.05);
+            
+            /* Node Pastel Colors (Soft & Unified) */
+            --node-root: #FFD1DC;    /* Pastel Pink */
+            --node-keyword: #CDF0EA; /* Pastel Mint */
+            --node-sentence: #D4E6F1; /* Pastel Sky */
         }
 
         [data-theme="dark"] {
-            --bg-color: #1C1C1E;
-            --panel-bg: #2C2C2E;
-            --text-color: #FFFFFF;
-            --border-color: #48484A;
+            --bg-color: #1E1E1E;
+            --panel-bg: rgba(40, 40, 40, 0.85);
+            --text-color: #F5F5F7;
+            --border-color: rgba(255, 255, 255, 0.1);
             --accent-color: #0A84FF;
         }
 
-        body { font-family: -apple-system, BlinkMacSystemFont, "Pretendard", sans-serif; padding: 20px; background-color: var(--bg-color); color: var(--text-color); margin: 0; height: 100vh; box-sizing: border-box; transition: 0.3s; }
-        .container { display: flex; gap: 20px; height: 92vh; flex-direction: column; }
-        @media (min-width: 900px) { .container { flex-direction: row; } .input-panel { width: 340px; flex-shrink: 0; } .map-panel { flex-grow: 1; } }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Pretendard", "SF Pro Text", sans-serif; 
+            padding: 20px; 
+            background-color: var(--bg-color); 
+            color: var(--text-color); 
+            margin: 0; 
+            height: 100vh; 
+            box-sizing: border-box; 
+            transition: background-color 0.3s ease;
+            backdrop-filter: blur(20px);
+        }
 
-        .panel { background: var(--panel-bg); padding: 20px; border-radius: var(--radius); box-shadow: var(--shadow); border: 1px solid var(--border-color); display: flex; flex-direction: column; position: relative; }
+        .container { display: flex; gap: 20px; height: 92vh; flex-direction: column; }
+        @media (min-width: 900px) { 
+            .container { flex-direction: row; } 
+            .input-panel { width: 340px; flex-shrink: 0; } 
+            .map-panel { flex-grow: 1; } 
+        }
+
+        .panel { 
+            background: var(--panel-bg); 
+            padding: 24px; 
+            border-radius: var(--radius); 
+            box-shadow: var(--shadow); 
+            border: 1px solid var(--border-color); 
+            display: flex; flex-direction: column; 
+            position: relative; 
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+        }
         
-        h2 { margin: 0 0 15px 0; font-size: 1.1rem; display: flex; justify-content: space-between; align-items: center; }
-        textarea { width: 100%; height: 140px; padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); resize: none; font-family: inherit; margin-bottom: 10px; background: var(--bg-color); color: var(--text-color); box-sizing: border-box;}
-        input[type="text"] { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 10px; box-sizing: border-box; background: var(--bg-color); color: var(--text-color);}
+        h2 { margin: 0 0 20px 0; font-size: 1.1rem; font-weight: 600; display: flex; justify-content: space-between; align-items: center; letter-spacing: -0.02em; }
         
-        .btn { padding: 10px; border-radius: 8px; border: none; cursor: pointer; font-weight: 600; font-size: 0.9rem; transition: 0.2s; }
-        .btn-primary { background-color: var(--accent-color); color: white; width: 100%; margin-top: 10px; }
-        .btn-secondary { background-color: rgba(120, 120, 128, 0.16); color: var(--text-color); font-size: 0.85rem;}
-        .btn-toolbar { display: flex; gap: 5px; margin-bottom: 10px; }
+        /* Input Area Styling */
+        textarea { 
+            width: 100%; height: 160px; padding: 16px; 
+            border-radius: 10px; border: 1px solid var(--border-color); 
+            resize: none; font-family: inherit; margin-bottom: 12px; 
+            background: var(--bg-color); color: var(--text-color); 
+            box-sizing: border-box; outline: none; transition: 0.2s;
+            font-size: 0.95rem; line-height: 1.5;
+        }
+        textarea:focus { border-color: var(--accent-color); }
+
+        input[type="text"] { 
+            width: 100%; padding: 14px; border-radius: 10px; 
+            border: 1px solid var(--border-color); margin-bottom: 12px; 
+            box-sizing: border-box; background: var(--bg-color); 
+            color: var(--text-color); outline: none; font-size: 0.95rem;
+        }
+
+        /* Buttons */
+        .btn { padding: 12px; border-radius: 10px; border: none; cursor: pointer; font-weight: 600; font-size: 0.9rem; transition: all 0.2s; }
+        .btn-primary { background-color: var(--accent-color); color: white; width: 100%; margin-top: 10px; box-shadow: 0 2px 10px rgba(0,122,255,0.2); }
+        .btn-primary:hover { transform: translateY(-1px); opacity: 0.9; }
+        .btn-secondary { background-color: rgba(120, 120, 128, 0.1); color: var(--text-color); font-size: 0.85rem; }
+        .btn-secondary:hover { background-color: rgba(120, 120, 128, 0.2); }
+        .btn-toolbar { display: flex; gap: 8px; margin-bottom: 15px; }
         .btn-toolbar .btn { flex: 1; }
 
-        #mynetwork { width: 100%; height: 100%; }
+        #mynetwork { width: 100%; height: 100%; outline: none; }
         
-        /* --- Toolbar Styles --- */
+        /* --- Toolbar Controls (Top Right) --- */
         .map-controls { 
-            position: absolute; top: 15px; right: 15px; left: 15px; 
+            position: absolute; top: 16px; right: 16px; left: 16px; 
             display: flex; justify-content: space-between; pointer-events: none; z-index: 10;
         }
         
         .control-group { 
-            pointer-events: auto; display: flex; gap: 8px; background: var(--panel-bg); 
-            padding: 5px; border-radius: 10px; border: 1px solid var(--border-color); box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-            flex-wrap: wrap;
+            pointer-events: auto; display: flex; gap: 6px; 
+            background: var(--panel-bg); 
+            padding: 6px; border-radius: 12px; 
+            border: 1px solid var(--border-color); 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            flex-wrap: wrap; align-items: center;
         }
 
         .control-group button { 
-            padding: 8px 12px; font-size: 0.85rem; background: transparent; border: none; 
-            border-radius: 6px; cursor: pointer; color: var(--text-color); transition: 0.2s;
+            padding: 8px 12px; font-size: 0.8rem; background: transparent; border: none; 
+            border-radius: 8px; cursor: pointer; color: var(--text-color); transition: 0.2s;
+            display: flex; align-items: center; gap: 6px; font-weight: 500;
         }
-        .control-group button:hover { background-color: rgba(120, 120, 128, 0.1); }
+        .control-group button:hover { background-color: rgba(0,0,0,0.05); }
         
-        /* Context Toolbar (Hidden by default) */
-        #contextToolbar { display: none; border-color: var(--accent-color); background-color: rgba(0, 122, 255, 0.05); backdrop-filter: blur(10px); }
-        #edgeToolbar { display: none; border-color: var(--warning-color); }
+        /* Specific Button Colors in Toolbar */
+        .btn-add { color: var(--accent-color) !important; }
+        .btn-unlink { color: var(--text-color) !important; opacity: 0.8; }
+        .btn-delete { color: var(--danger-color) !important; }
 
-        /* Action Buttons */
-        .btn-add { color: var(--accent-color) !important; font-weight: bold; }
-        .btn-move { color: var(--warning-color) !important; font-weight: bold; }
-        .btn-connect { color: var(--success-color) !important; font-weight: bold; }
-        .btn-delete { color: var(--danger-color) !important; font-weight: bold; }
-
-        /* Status Message */
+        /* Status Message Bubble */
         #statusMessage {
-            position: absolute; top: 70px; left: 50%; transform: translateX(-50%);
-            background: var(--accent-color); color: white; padding: 8px 24px; border-radius: 20px;
-            font-size: 0.9rem; font-weight: bold; box-shadow: 0 4px 15px rgba(0,122,255,0.3);
+            position: absolute; top: 80px; left: 50%; transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.75); color: white; padding: 10px 24px; border-radius: 30px;
+            font-size: 0.9rem; font-weight: 500; box-shadow: 0 4px 20px rgba(0,0,0,0.15);
             pointer-events: none; opacity: 0; transition: opacity 0.3s; z-index: 100;
+            backdrop-filter: blur(10px);
         }
 
-        .version-tag { font-size: 0.75rem; color: var(--text-color); opacity: 0.5; margin-top: 10px; text-align: right; }
+        .version-tag { font-size: 0.7rem; color: var(--text-color); opacity: 0.4; margin-top: 15px; text-align: right; }
+        
+        /* Hidden Elements */
+        #contextToolbar, #edgeToolbar { display: none; }
     </style>
 </head>
 <body>
@@ -97,7 +149,7 @@
         <div class="input-panel panel">
             <h2>
                 Settings
-                <button onclick="toggleTheme()" style="background:none; border:none; cursor:pointer; font-size:1.5rem;" title="Dark Mode">🌓</button>
+                <button onclick="toggleTheme()" style="background:none; border:none; cursor:pointer; font-size:1.4rem; opacity:0.8;" title="Toggle Dark Mode">🌓</button>
             </h2>
             
             <div class="btn-toolbar">
@@ -106,50 +158,51 @@
                 <input type="file" id="fileLoader" style="display:none" onchange="loadProject(event)" accept=".json">
             </div>
 
-            <label style="font-size:0.85rem; font-weight:bold; color:var(--text-color); margin-bottom:5px; display:block;">Text Input:</label>
-            <textarea id="inputText" placeholder="Paste your text here..."></textarea>
+            <label style="font-size:0.85rem; font-weight:600; color:var(--text-color); margin-bottom:6px; display:block;">Text Input:</label>
+            <textarea id="inputText" placeholder="Paste your sermon or notes here..."></textarea>
             
-            <label style="font-size:0.85rem; font-weight:bold; color:var(--text-color); margin-bottom:5px; display:block;">Keywords (Optional):</label>
-            <input type="text" id="keywords" placeholder="e.g. Love, Hope">
+            <label style="font-size:0.85rem; font-weight:600; color:var(--text-color); margin-bottom:6px; display:block;">Keywords (Optional):</label>
+            <input type="text" id="keywords" placeholder="e.g. Love, Grace, Hope">
             
             <button class="btn btn-primary" onclick="processData()">✨ Generate Mind Map</button>
 
             <div style="margin-top:auto;">
-                <p style="font-size:0.8rem; opacity:0.6; line-height:1.4; margin-bottom:0;">
-                    * <b>Click Node:</b> Show Tools (Add, Move, Edit)<br>
+                <p style="font-size:0.75rem; opacity:0.6; line-height:1.5; margin-bottom:0;">
+                    * <b>Click Node:</b> Open Menu<br>
                     * <b>Auto-Save:</b> Enabled
                 </p>
-                <div class="version-tag">Version 1.4</div>
+                <div class="version-tag">Version 1.5</div>
             </div>
         </div>
 
         <div class="map-panel panel">
-            <div id="statusMessage">Action Active</div>
+            <div id="statusMessage">Ready</div>
 
             <div class="map-controls">
                 <div style="display:flex; gap:10px;">
-                    <div id="contextToolbar" class="control-group">
+                    <div id="contextToolbar" class="control-group" style="border-color: var(--accent-color);">
                         <button class="btn-add" onclick="addChildNode()">➕ Add Child</button>
-                        <button onclick="editNodeText()">✏️ Edit Text</button>
-                        <button class="btn-move" onclick="startMove()">🚀 Move</button>
-                        <button class="btn-connect" onclick="startConnect()">🔗 Connect</button>
+                        <button onclick="editNodeText()">✏️ Edit</button>
+                        <button onclick="startMove()">🚀 Move</button>
+                        <button onclick="startConnect()">🔗 Connect</button>
+                        <button class="btn-unlink" onclick="unlinkNode()" title="Disconnect from parent">🔗💔 Unlink</button>
                         <button class="btn-delete" onclick="deleteSelected()">🗑 Delete</button>
                     </div>
-                    <div id="edgeToolbar" class="control-group">
+                    <div id="edgeToolbar" class="control-group" style="border-color: var(--warning-color);">
                         <button class="btn-delete" onclick="deleteSelectedEdge()">❌ Delete Line</button>
                     </div>
                 </div>
 
                 <div class="control-group">
-                    <button onclick="undo()" title="Undo">↩️</button>
-                    <button onclick="resetMap()" title="Reset" style="color:var(--danger-color)">🔄</button>
-                    <span style="width:1px; background:var(--border-color); margin:0 5px;"></span>
-                    <button onclick="setLayout('UD')">🌳</button>
-                    <button onclick="setLayout('LR')">🧱</button>
-                    <button onclick="setLayout('Free')">✨</button>
-                    <span style="width:1px; background:var(--border-color); margin:0 5px;"></span>
-                    <button onclick="exportMap('png')">📷</button>
-                    <button onclick="exportWord()">📝</button>
+                    <button onclick="undo()" title="Undo">↩️ Undo</button>
+                    <button onclick="resetMap()" style="color:var(--danger-color)" title="Reset">🔄 Reset</button>
+                    <span style="width:1px; height:15px; background:var(--border-color); margin:0 2px;"></span>
+                    <button onclick="setLayout('UD')">🌳 Tree</button>
+                    <button onclick="setLayout('LR')">🧱 Block</button>
+                    <button onclick="setLayout('Free')">✨ Free</button>
+                    <span style="width:1px; height:15px; background:var(--border-color); margin:0 2px;"></span>
+                    <button onclick="exportMap('png')">📷 IMG</button>
+                    <button onclick="exportWord()">📝 Word</button>
                 </div>
             </div>
 
@@ -161,8 +214,7 @@
         let network = null;
         let isDarkMode = false;
         
-        // State variables for actions
-        let currentAction = null; // 'move' or 'connect'
+        let currentAction = null;
         let actionSourceId = null; 
         
         let historyStack = [];
@@ -172,8 +224,6 @@
         window.onload = function() {
             if(localStorage.getItem('theme') === 'dark') toggleTheme();
             restoreSession();
-            
-            // Global key listener for delete
             document.addEventListener('keydown', function(e) {
                 if(e.key === 'Delete' || e.key === 'Backspace') {
                     if(network.getSelectedNodes().length > 0) deleteSelected();
@@ -182,32 +232,30 @@
             });
         };
 
-        // --- 1. History Logic ---
+        // --- 1. History ---
         function saveHistory() {
             if(!network) return;
-            const currentState = { nodes: network.body.data.nodes.get(), edges: network.body.data.edges.get() };
-            historyStack.push(JSON.stringify(currentState));
+            const s = { nodes: network.body.data.nodes.get(), edges: network.body.data.edges.get() };
+            historyStack.push(JSON.stringify(s));
             if(historyStack.length > MAX_HISTORY) historyStack.shift();
         }
-
         function undo() {
             if(historyStack.length === 0) { showStatus("Nothing to undo"); return; }
-            const prevState = JSON.parse(historyStack.pop());
-            network.setData({nodes: new vis.DataSet(prevState.nodes), edges: new vis.DataSet(prevState.edges)});
+            const p = JSON.parse(historyStack.pop());
+            network.setData({nodes: new vis.DataSet(p.nodes), edges: new vis.DataSet(p.edges)});
             saveSession();
         }
-
         function resetMap() {
             if(!initialState) return;
-            if(confirm("Reset entire map?")) {
-                const startState = JSON.parse(initialState);
-                network.setData({nodes: new vis.DataSet(startState.nodes), edges: new vis.DataSet(startState.edges)});
+            if(confirm("Reset to original state?")) {
+                const s = JSON.parse(initialState);
+                network.setData({nodes: new vis.DataSet(s.nodes), edges: new vis.DataSet(s.edges)});
                 historyStack = [];
                 saveSession();
             }
         }
 
-        // --- 2. Main Generation Logic ---
+        // --- 2. Generator ---
         function processData() {
             const text = document.getElementById('inputText').value;
             const keywordsRaw = document.getElementById('keywords').value;
@@ -225,24 +273,25 @@
             }
 
             const style = getComputedStyle(document.documentElement);
+            // Use trim() to clean up color strings
             const colRoot = style.getPropertyValue('--node-root').trim();
             const colKw = style.getPropertyValue('--node-keyword').trim();
             const colSent = style.getPropertyValue('--node-sentence').trim();
 
-            let nodes = [{id: 1, label: 'Main Topic', color: colRoot, shape:'box', font:{size:22}}];
+            let nodes = [{id: 1, label: 'Main Topic', color: colRoot, shape:'box', font:{size:24, face:'Pretendard'}}];
             let edges = [];
             let nodeId = 2;
             const sentences = text.match(/[^.?!]+[.?!]+["']?|[^.?!]+$/g) || [text];
 
             keywordList.forEach(kw => {
                 const kwId = nodeId++;
-                nodes.push({id: kwId, label: kw, color: colKw, shape:'ellipse', font:{size:16}});
+                nodes.push({id: kwId, label: kw, color: colKw, shape:'ellipse', font:{size:18, face:'Pretendard'}});
                 edges.push({from: 1, to: kwId});
                 let count = 0;
                 sentences.forEach(s => {
                     if(s.includes(kw) && count < 3) {
                         if(s.trim().length > 5) {
-                            nodes.push({id: nodeId, label: s.trim().substring(0,25)+"...", title: s.trim(), color: colSent, shape:'box', widthConstraint:{maximum:200}});
+                            nodes.push({id: nodeId, label: s.trim().substring(0,25)+"...", title: s.trim(), color: colSent, shape:'box', widthConstraint:{maximum:220}, font:{face:'Pretendard'}});
                             edges.push({from: kwId, to: nodeId});
                             nodeId++;
                             count++;
@@ -261,187 +310,154 @@
             const container = document.getElementById('mynetwork');
             const data = { nodes: new vis.DataSet(nodesData), edges: new vis.DataSet(edgesData) };
             const options = {
-                nodes: { shape: 'box', margin: 10, borderWidth: 0, shadow: true, font: { face: 'Pretendard' } },
-                edges: { color: '#B0B0B0', width: 2, smooth: { type: 'cubicBezier' } },
-                layout: { hierarchical: { enabled: true, direction: "UD", sortMethod: "hubsize", levelSeparation: 150 } },
+                nodes: { shape: 'box', margin: 12, borderWidth: 0, shadow: true, font: { face: 'Pretendard', color:'#333' } },
+                edges: { color: '#B0B0B0', width: 2, smooth: { type: 'cubicBezier', forceDirection: 'vertical', roundness: 0.4 } },
+                layout: { hierarchical: { enabled: true, direction: "UD", sortMethod: "hubsize", levelSeparation: 160, nodeSpacing: 180 } },
                 physics: false,
                 interaction: { hover: true, selectConnectedEdges: false }
             };
 
             network = new vis.Network(container, data, options);
 
-            // --- Event Listeners for Interaction ---
-            
-            // 1. Selection: Show Toolbars
-            network.on("selectNode", function(params) {
-                if(currentAction) return; // Don't show menu if we are in the middle of moving/connecting
+            // Events
+            network.on("selectNode", () => {
+                if(currentAction) return;
                 document.getElementById('contextToolbar').style.display = 'flex';
                 document.getElementById('edgeToolbar').style.display = 'none';
             });
-            
-            network.on("selectEdge", function(params) {
-                if(params.nodes.length === 0) { // Only show edge tools if no node is selected
+            network.on("selectEdge", (params) => {
+                if(params.nodes.length === 0) {
                     document.getElementById('edgeToolbar').style.display = 'flex';
                     document.getElementById('contextToolbar').style.display = 'none';
                 }
             });
+            network.on("deselectNode", () => document.getElementById('contextToolbar').style.display = 'none');
+            network.on("deselectEdge", () => document.getElementById('edgeToolbar').style.display = 'none');
 
-            network.on("deselectNode", function(params) {
-                document.getElementById('contextToolbar').style.display = 'none';
-            });
-            
-            network.on("deselectEdge", function(params) {
-                document.getElementById('edgeToolbar').style.display = 'none';
-            });
-
-            // 2. Click Logic for Actions (Move / Connect)
-            network.on("click", function(params) {
-                // If we are waiting for a target (Move or Connect)
+            network.on("click", (params) => {
                 if (currentAction && params.nodes.length > 0) {
                     const targetId = params.nodes[0];
                     if (targetId !== actionSourceId) {
                         if (currentAction === 'move') finalizeMove(actionSourceId, targetId);
                         else if (currentAction === 'connect') finalizeConnect(actionSourceId, targetId);
                     }
-                } 
-                // If clicking empty space, cancel actions
-                else if (params.nodes.length === 0) {
-                    cancelAction();
-                }
+                } else if (params.nodes.length === 0) cancelAction();
             });
 
-            network.on("doubleClick", function(params) {
-                if(params.nodes.length > 0) editNodeText();
-            });
-
+            network.on("doubleClick", (params) => { if(params.nodes.length > 0) editNodeText(); });
             network.on("dragEnd", () => saveSession());
         }
 
-        // --- 3. Context Action Functions ---
-
-        function getSelectedNode() {
-            const ids = network.getSelectedNodes();
-            return ids.length > 0 ? ids[0] : null;
-        }
+        // --- 3. Actions ---
+        function getSelectedNode() { const ids = network.getSelectedNodes(); return ids.length > 0 ? ids[0] : null; }
 
         function addChildNode() {
-            const parentId = getSelectedNode();
-            if(!parentId) return;
-            const label = prompt("New Node Name:");
-            if(label) {
+            const pid = getSelectedNode(); if(!pid) return;
+            const l = prompt("Child Node Name:");
+            if(l) {
                 saveHistory();
-                const newId = Date.now();
+                const nid = Date.now();
                 const style = getComputedStyle(document.documentElement);
-                network.body.data.nodes.add({id: newId, label: label, shape:'box', color: style.getPropertyValue('--node-sentence').trim()});
-                network.body.data.edges.add({from: parentId, to: newId});
+                network.body.data.nodes.add({id: nid, label: l, shape:'box', color: style.getPropertyValue('--node-sentence').trim()});
+                network.body.data.edges.add({from: pid, to: nid});
                 saveSession();
             }
         }
 
         function editNodeText() {
-            const id = getSelectedNode();
-            if(!id) return;
-            const node = network.body.data.nodes.get(id);
-            const newLabel = prompt("Edit Text:", node.label);
-            if(newLabel !== null) {
-                saveHistory();
-                network.body.data.nodes.update({id: id, label: newLabel});
-                saveSession();
-            }
+            const id = getSelectedNode(); if(!id) return;
+            const n = network.body.data.nodes.get(id);
+            const l = prompt("Edit Text:", n.label);
+            if(l !== null) { saveHistory(); network.body.data.nodes.update({id: id, label: l}); saveSession(); }
         }
 
         function deleteSelected() {
-            const id = getSelectedNode();
-            if(!id) return;
+            const id = getSelectedNode(); if(!id) return;
             saveHistory();
-            network.body.data.nodes.remove(id); // Vis.js auto-removes connected edges
+            network.body.data.nodes.remove(id);
             document.getElementById('contextToolbar').style.display = 'none';
             saveSession();
         }
 
+        // New Feature: Unlink (Disconnect from Parent)
+        function unlinkNode() {
+            const id = getSelectedNode(); if(!id) return;
+            const edges = network.body.data.edges.get();
+            // Find edges where 'to' is this node (incoming edges)
+            const incoming = edges.filter(e => e.to === id);
+            
+            if(incoming.length > 0) {
+                saveHistory();
+                network.body.data.edges.remove(incoming.map(e => e.id));
+                showStatus("Node unlinked from parent");
+                saveSession();
+            } else {
+                showStatus("No parent link found");
+            }
+        }
+
         function deleteSelectedEdge() {
-            const edges = network.getSelectedEdges();
-            if(edges.length === 0) return;
+            const edges = network.getSelectedEdges(); if(edges.length === 0) return;
             saveHistory();
             network.body.data.edges.remove(edges);
             document.getElementById('edgeToolbar').style.display = 'none';
             saveSession();
         }
 
-        // --- 4. Move & Connect Logic ---
-
         function startMove() {
-            const id = getSelectedNode();
-            if(!id) return;
-            currentAction = 'move';
-            actionSourceId = id;
-            showStatus("👉 Select a NEW PARENT node");
+            const id = getSelectedNode(); if(!id) return;
+            currentAction = 'move'; actionSourceId = id;
+            showStatus("👉 Click new PARENT node");
             document.body.style.cursor = "alias";
-            // Highlight source
-            network.body.data.nodes.update({id: id, borderWidth: 3, color: {border:'#FF9500'}});
+            network.body.data.nodes.update({id: id, borderWidth: 2, color: {border:'#FF9500'}});
         }
 
-        function finalizeMove(source, target) {
+        function finalizeMove(src, tgt) {
             saveHistory();
             const edges = network.body.data.edges;
-            // Remove old parent edges (where 'to' is source)
-            const connected = network.getConnectedEdges(source);
-            connected.forEach(eid => {
-                const edge = edges.get(eid);
-                if(edge.to === source) edges.remove(eid);
-            });
-            // Add new edge
-            edges.add({from: target, to: source});
-            finishAction(source);
-            showStatus("Moved!");
+            const connected = network.getConnectedEdges(src);
+            connected.forEach(eid => { const e = edges.get(eid); if(e.to === src) edges.remove(eid); });
+            edges.add({from: tgt, to: src});
+            finishAction(src); showStatus("Moved!");
         }
 
         function startConnect() {
-            const id = getSelectedNode();
-            if(!id) return;
-            currentAction = 'connect';
-            actionSourceId = id;
-            showStatus("👉 Select node to CONNECT");
+            const id = getSelectedNode(); if(!id) return;
+            currentAction = 'connect'; actionSourceId = id;
+            showStatus("👉 Click node to CONNECT");
             document.body.style.cursor = "cell";
-            network.body.data.nodes.update({id: id, borderWidth: 3, color: {border:'#34C759'}});
+            network.body.data.nodes.update({id: id, borderWidth: 2, color: {border:'#34C759'}});
         }
 
-        function finalizeConnect(source, target) {
+        function finalizeConnect(src, tgt) {
             saveHistory();
-            network.body.data.edges.add({from: source, to: target});
-            finishAction(source);
-            showStatus("Connected!");
+            network.body.data.edges.add({from: src, to: tgt});
+            finishAction(src); showStatus("Connected!");
         }
 
-        function finishAction(sourceId) {
-            network.body.data.nodes.update({id: sourceId, borderWidth: 0, color: null});
-            network.body.data.nodes.update({id: sourceId, borderWidth: 0}); // reset
-            currentAction = null;
-            actionSourceId = null;
+        function finishAction(sid) {
+            network.body.data.nodes.update({id: sid, borderWidth: 0, color: null});
+            network.body.data.nodes.update({id: sid, borderWidth: 0});
+            currentAction = null; actionSourceId = null;
             document.body.style.cursor = "default";
             saveSession();
         }
 
         function cancelAction() {
-            if (actionSourceId) {
-                network.body.data.nodes.update({id: actionSourceId, borderWidth: 0});
-            }
-            currentAction = null;
-            actionSourceId = null;
-            document.body.style.cursor = "default";
-            showStatus("");
+            if (actionSourceId) network.body.data.nodes.update({id: actionSourceId, borderWidth: 0});
+            currentAction = null; actionSourceId = null;
+            document.body.style.cursor = "default"; showStatus("");
         }
 
-        // --- 5. Utilities ---
-        function setLayout(type) {
+        // --- 4. Utilities ---
+        function setLayout(t) {
             saveHistory();
             if(!network) return;
-            let opts = { physics: false };
-            if(type==='UD') opts.layout = { hierarchical: { enabled: true, direction: "UD", levelSeparation: 150 } };
-            else if(type==='LR') opts.layout = { hierarchical: { enabled: true, direction: "LR", levelSeparation: 200 } };
-            else { opts.layout = { hierarchical: { enabled: false } }; opts.physics = { enabled: true }; }
-            network.setOptions(opts);
-            network.fit();
+            let o = { physics: false };
+            if(t==='UD') o.layout = { hierarchical: { enabled: true, direction: "UD", levelSeparation: 150 } };
+            else if(t==='LR') o.layout = { hierarchical: { enabled: true, direction: "LR", levelSeparation: 200 } };
+            else { o.layout = { hierarchical: { enabled: false } }; o.physics = { enabled: true }; }
+            network.setOptions(o); network.fit();
         }
 
         function toggleTheme() {
@@ -450,60 +466,27 @@
             localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
         }
 
-        function showStatus(msg) {
+        function showStatus(m) {
             const el = document.getElementById('statusMessage');
-            el.innerText = msg;
-            el.style.opacity = msg ? 1 : 0;
-            if(msg) setTimeout(() => el.style.opacity = 0, 3000);
+            el.innerText = m; el.style.opacity = m ? 1 : 0;
+            if(m) setTimeout(() => el.style.opacity = 0, 3000);
         }
 
         function saveSession() {
             if(!network) return;
-            const d = { 
-                text: document.getElementById('inputText').value, 
-                nodes: network.body.data.nodes.get(), 
-                edges: network.body.data.edges.get(),
-                initialState: initialState 
-            };
-            localStorage.setItem('mindMapSessionV1_4', JSON.stringify(d));
+            const d = { text: document.getElementById('inputText').value, nodes: network.body.data.nodes.get(), edges: network.body.data.edges.get(), initialState: initialState };
+            localStorage.setItem('mindMapSessionV1_5', JSON.stringify(d));
         }
 
         function restoreSession() {
-            const s = localStorage.getItem('mindMapSessionV1_4');
+            const s = localStorage.getItem('mindMapSessionV1_5');
             if(s) { try { const d = JSON.parse(s); document.getElementById('inputText').value = d.text||""; initialState = d.initialState; drawMap(d.nodes, d.edges); } catch(e){} }
         }
 
-        function saveProject() { if(!network) return; const d = { nodes: network.body.data.nodes.get(), edges: network.body.data.edges.get() }; const blob = new Blob([JSON.stringify(d)], {type:"text/json"}); const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "mindmap.json"; a.click(); }
+        function saveProject() { if(!network) return; const d = { nodes: network.body.data.nodes.get(), edges: network.body.data.edges.get() }; const b = new Blob([JSON.stringify(d)], {type:"text/json"}); const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = "mindmap.json"; a.click(); }
         function loadProject(e) { const r = new FileReader(); r.onload = function(evt) { const d = JSON.parse(evt.target.result); drawMap(d.nodes, d.edges); }; r.readAsText(e.target.files[0]); }
-        
-        async function exportMap(type) {
-            const el = document.getElementById('mynetwork');
-            const canvas = await html2canvas(el);
-            const link = document.createElement('a');
-            link.download = 'mindmap.png';
-            link.href = canvas.toDataURL();
-            link.click();
-        }
-
-        async function exportWord() {
-            const el = document.getElementById('mynetwork');
-            const originalBg = el.style.backgroundColor;
-            el.style.backgroundColor = "#ffffff";
-            const canvas = await html2canvas(el);
-            const imgData = canvas.toDataURL('image/png');
-            el.style.backgroundColor = originalBg;
-
-            const htmlContent = `
-                <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
-                <head><meta charset='utf-8'><title>Mind Map Export</title></head>
-                <body><h1>Mind Map Report</h1><br><img src="${imgData}" style="width:100%;"><br><br><p>Generated by AI Mind Map v1.4</p></body></html>
-            `;
-            const blob = new Blob(['\ufeff', htmlContent], { type: 'application/msword' });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = 'mindmap_export.doc';
-            link.click();
-        }
+        async function exportMap(t) { const el = document.getElementById('mynetwork'); const c = await html2canvas(el); const l = document.createElement('a'); l.download = 'mindmap.png'; l.href = c.toDataURL(); l.click(); }
+        async function exportWord() { const el = document.getElementById('mynetwork'); const bg = el.style.backgroundColor; el.style.backgroundColor = "#fff"; const c = await html2canvas(el); const d = c.toDataURL('image/png'); el.style.backgroundColor = bg; const h = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Export</title></head><body><h1>Mind Map</h1><br><img src="${d}" style="width:100%"><br><p>v1.5</p></body></html>`; const b = new Blob(['\ufeff', h], { type: 'application/msword' }); const l = document.createElement('a'); l.href = URL.createObjectURL(b); l.download = 'mindmap.doc'; l.click(); }
     </script>
 </body>
 </html>
