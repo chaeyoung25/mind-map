@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Mind Map (v2.1)</title>
+    <title>AI Mind Map (v2.2)</title>
     <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -34,7 +34,6 @@
             --text-color: #F5F5F7;
             --border-color: rgba(255, 255, 255, 0.15);
             --accent-color: #0A84FF;
-            /* Nodes stay pastel even in dark mode */
             --node-root: #FFD1DC;
             --node-keyword: #CDF0EA;
             --node-sentence: #F0F4F8; 
@@ -143,10 +142,10 @@
 
             <div style="margin-top:auto;">
                 <p style="font-size:0.75rem; opacity:0.6; line-height:1.5; margin-bottom:0;">
-                    * <b>Board View:</b> Compact & Spaced.<br>
-                    * <b>Colors:</b> Pastel Fixed.
+                    * <b>Board View:</b> No lines, Auto-snap.<br>
+                    * <b>Auto-Save:</b> Enabled
                 </p>
-                <div class="version-tag">Version 2.1</div>
+                <div class="version-tag">Version 2.2</div>
             </div>
         </div>
 
@@ -196,10 +195,10 @@
         const MAX_HISTORY = 50; 
         let isBoardMode = false;
 
-        // 🔥 Configuration for Board Layout (v2.1)
+        // 🔥 Configuration for Board Layout (v2.2)
         const BOARD_CONFIG = {
-            colWidth: 230,   // Narrower columns (was 260) -> 좌우 간격 좁힘
-            cardGap: 110,    // Wider vertical gap (was 60) -> 상하 간격 넓힘
+            colWidth: 230,   
+            cardGap: 85,    // Optimized gap (Between 60 and 110)
             headerY: -200
         };
 
@@ -275,7 +274,6 @@
                 sentences.forEach(s => {
                     if(s.includes(kw) && count < 3) {
                         if(s.trim().length > 5) {
-                            // Fixed color #333 to ensure text is visible on pastel cards even in dark mode
                             nodes.push({id: nodeId, label: s.trim().substring(0,40)+"...", title: s.trim(), color: colSent, shape:'box', widthConstraint:{maximum:210}, font:{face:'Pretendard', size:14, color:'#333'}, level:2});
                             edges.push({from: kwId, to: nodeId});
                             nodeId++;
@@ -295,7 +293,6 @@
             const container = document.getElementById('mynetwork');
             const data = { nodes: new vis.DataSet(nodesData), edges: new vis.DataSet(edgesData) };
             const options = {
-                // Fixed font color to #333 to ensure readability on pastel nodes
                 nodes: { shape: 'box', margin: 12, borderWidth: 0, shadow: true, font: { face: 'Pretendard', color:'#333' } },
                 edges: { color: '#B0B0B0', width: 2, smooth: { type: 'cubicBezier', forceDirection: 'vertical', roundness: 0.4 } },
                 layout: { hierarchical: { enabled: true, direction: "UD", sortMethod: "hubsize", levelSeparation: 160, nodeSpacing: 180 } },
@@ -355,7 +352,8 @@
                         const parentEdge = edges.find(e => e.to === draggedNodeId && connectedEdges.includes(e.id));
                         if (parentEdge) {
                              network.body.data.edges.remove(parentEdge.id);
-                             network.body.data.edges.add({from: nearestCol.id, to: draggedNodeId});
+                             // 🔥 Fix: Add hidden edge if in Board Mode
+                             network.body.data.edges.add({from: nearestCol.id, to: draggedNodeId, hidden: true});
                         }
                     }
                     layoutBoard();
@@ -376,7 +374,8 @@
                 const nid = Date.now();
                 const style = getComputedStyle(document.documentElement);
                 network.body.data.nodes.add({id: nid, label: l, shape:'box', color: style.getPropertyValue('--node-sentence').trim(), font:{color:'#333'}});
-                network.body.data.edges.add({from: pid, to: nid});
+                // 🔥 Fix: Hide edge if Board Mode
+                network.body.data.edges.add({from: pid, to: nid, hidden: isBoardMode});
                 saveSession();
                 if(isBoardMode) setTimeout(layoutBoard, 50);
             }
@@ -425,7 +424,8 @@
             const edges = network.body.data.edges;
             const connected = network.getConnectedEdges(src);
             connected.forEach(eid => { const e = edges.get(eid); if(e.to === src) edges.remove(eid); });
-            edges.add({from: tgt, to: src});
+            // 🔥 Fix: Hide edge if Board Mode
+            edges.add({from: tgt, to: src, hidden: isBoardMode});
             finishAction(src); showStatus("Moved!");
             if(isBoardMode) setTimeout(layoutBoard, 50);
         }
@@ -438,7 +438,8 @@
         }
         function finalizeConnect(src, tgt) {
             saveHistory();
-            network.body.data.edges.add({from: src, to: tgt});
+            // 🔥 Fix: Hide edge if Board Mode
+            network.body.data.edges.add({from: src, to: tgt, hidden: isBoardMode});
             finishAction(src); showStatus("Linked!");
         }
         function finishAction(sid) {
@@ -518,7 +519,7 @@
                     updates.push({ 
                         id: card.id, 
                         x: cx, 
-                        y: cy + BOARD_CONFIG.cardGap + (cIndex * BOARD_CONFIG.cardGap) // Increased vertical gap
+                        y: cy + BOARD_CONFIG.cardGap + (cIndex * BOARD_CONFIG.cardGap) // Optimized vertical gap
                     });
                 });
             });
@@ -542,16 +543,16 @@
         function saveSession() {
             if(!network) return;
             const d = { text: document.getElementById('inputText').value, nodes: network.body.data.nodes.get(), edges: network.body.data.edges.get(), initialState: initialState };
-            localStorage.setItem('mindMapSessionV2_1', JSON.stringify(d));
+            localStorage.setItem('mindMapSessionV2_2', JSON.stringify(d));
         }
         function restoreSession() {
-            const s = localStorage.getItem('mindMapSessionV2_1');
+            const s = localStorage.getItem('mindMapSessionV2_2');
             if(s) { try { const d = JSON.parse(s); document.getElementById('inputText').value = d.text||""; initialState = d.initialState; drawMap(d.nodes, d.edges); } catch(e){} }
         }
         function saveProject() { if(!network) return; const d = { nodes: network.body.data.nodes.get(), edges: network.body.data.edges.get() }; const b = new Blob([JSON.stringify(d)], {type:"text/json"}); const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = "mindmap.json"; a.click(); }
         function loadProject(e) { const r = new FileReader(); r.onload = function(evt) { const d = JSON.parse(evt.target.result); drawMap(d.nodes, d.edges); }; r.readAsText(e.target.files[0]); }
         async function exportMap(t) { const el = document.getElementById('mynetwork'); const c = await html2canvas(el); const l = document.createElement('a'); l.download = 'mindmap.png'; l.href = c.toDataURL(); l.click(); }
-        async function exportWord() { const el = document.getElementById('mynetwork'); const bg = el.style.backgroundColor; el.style.backgroundColor = "#fff"; const c = await html2canvas(el); const d = c.toDataURL('image/png'); el.style.backgroundColor = bg; const h = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Export</title></head><body><h1>Mind Map</h1><br><img src="${d}" style="width:100%"><br><p>v2.1</p></body></html>`; const b = new Blob(['\ufeff', h], { type: 'application/msword' }); const l = document.createElement('a'); l.href = URL.createObjectURL(b); l.download = 'mindmap.doc'; l.click(); }
+        async function exportWord() { const el = document.getElementById('mynetwork'); const bg = el.style.backgroundColor; el.style.backgroundColor = "#fff"; const c = await html2canvas(el); const d = c.toDataURL('image/png'); el.style.backgroundColor = bg; const h = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Export</title></head><body><h1>Mind Map</h1><br><img src="${d}" style="width:100%"><br><p>v2.2</p></body></html>`; const b = new Blob(['\ufeff', h], { type: 'application/msword' }); const l = document.createElement('a'); l.href = URL.createObjectURL(b); l.download = 'mindmap.doc'; l.click(); }
     </script>
 </body>
 </html>
