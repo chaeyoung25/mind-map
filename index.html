@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Mind Map (v4.4 Pro)</title>
+    <title>AI Mind Map (v4.5 Pro)</title>
     <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -16,8 +16,14 @@
             --text-color: #1D1D1F;
             --border-color: rgba(0, 0, 0, 0.1);
             --accent-color: #007AFF;
-            --selection-blue: rgba(0, 122, 255, 0.2);
-            --selection-border: rgba(0, 122, 255, 0.6);
+            --selection-blue: rgba(0, 122, 255, 0.15);
+            --selection-border: #007AFF;
+            
+            /* Node Colors */
+            --col-root-bg: #FFD1DC; --col-root-bd: #FFB7C5;
+            --col-topic-bg: #FFE6A7; --col-topic-bd: #FFD580;
+            --col-sub-bg: #CDF0EA; --col-sub-bd: #A6E3D9;
+            --col-det-bg: #FFFFFF; --col-det-bd: #E0E0E0;
         }
 
         [data-theme="dark"] {
@@ -32,7 +38,7 @@
             font-family: -apple-system, BlinkMacSystemFont, "Pretendard", sans-serif; 
             padding: 20px; background-color: var(--bg-color); color: var(--text-color); margin: 0; height: 100vh; 
             box-sizing: border-box; transition: background-color 0.3s ease; backdrop-filter: blur(20px);
-            overflow: hidden; /* Prevent body scroll for box selection */
+            overflow: hidden; user-select: none; /* Prevent text selection during drag */
         }
 
         .container { display: flex; gap: 20px; height: 92vh; flex-direction: column; }
@@ -55,6 +61,7 @@
             width: 100%; height: 200px; padding: 14px; border-radius: 10px; border: 1px solid var(--border-color); 
             resize: none; font-family: inherit; margin-bottom: 10px; background: var(--bg-color); 
             color: var(--text-color); box-sizing: border-box; outline: none; transition: 0.2s; font-size: 0.9rem; line-height: 1.5;
+            user-select: text; /* Allow text selection inside textarea */
         }
         textarea:focus { border-color: var(--accent-color); }
 
@@ -75,7 +82,7 @@
             border: 1px solid var(--selection-border);
             display: none;
             z-index: 9999;
-            pointer-events: none; /* Let clicks pass through */
+            pointer-events: none;
         }
 
         .map-controls { 
@@ -129,17 +136,17 @@
             </div>
 
             <label style="font-size:0.85rem; font-weight:600; color:var(--text-color); margin-bottom:6px; display:block;">Sermon / Note Input:</label>
-            <textarea id="inputText" placeholder="Paste your text here..."></textarea>
+            <textarea id="inputText" placeholder="Paste your text here... The system will organize it into a Board."></textarea>
             
-            <button class="btn btn-primary" onclick="processData()">✨ 텍스트 분석 및 마인드맵 생성</button>
+            <button class="btn btn-primary" onclick="processData()">✨ Generate Mind Map</button>
 
             <div style="margin-top:auto;">
                 <p style="font-size:0.75rem; opacity:0.6; line-height:1.5; margin-bottom:0;">
-                    * <b>Box Select:</b> Hold <b>Ctrl</b> + Drag.<br>
+                    * <b>Multi-Select:</b> Hold <b>Ctrl</b> + Drag.<br>
                     * <b>Copy/Paste:</b> Ctrl+C, Ctrl+V.<br>
-                    * <b>Move:</b> Groups move together.
+                    * <b>Structure:</b> Auto-aligns like OneNote.
                 </p>
-                <div class="version-tag">Version 4.4</div>
+                <div class="version-tag">Version 4.5</div>
             </div>
         </div>
 
@@ -162,13 +169,13 @@
                 </div>
 
                 <div class="control-group">
-                    <button onclick="undo()" title="Undo Step">↩️</button>
-                    <button onclick="resetMap()" style="color:var(--danger-color)" title="Reset All">🔄</button>
+                    <button onclick="undo()" title="Undo">↩️</button>
+                    <button onclick="resetMap()" style="color:var(--danger-color)" title="Reset">🔄</button>
                     <span style="width:1px; height:15px; background:var(--border-color); margin:0 2px;"></span>
                     <button onclick="setLayout('UD')">🌳 Tree</button>
                     <button onclick="setLayout('LR')">🧱 Block</button>
                     <button onclick="setLayout('Free')">✨ Free</button>
-                    <button onclick="setLayout('Board')" title="OneNote Style">📋 Board</button>
+                    <button onclick="setLayout('Board')" title="OneNote Board Layout">📋 Board</button>
                     <span style="width:1px; height:15px; background:var(--border-color); margin:0 2px;"></span>
                     <button onclick="exportMap('png')">📷</button>
                     <button onclick="exportWord()">📝</button>
@@ -180,6 +187,7 @@
     </div>
 
     <script>
+        // --- Global Variables ---
         let network = null;
         let isDarkMode = false;
         let currentAction = null;
@@ -189,10 +197,10 @@
         let initialState = null;
         const MAX_HISTORY = 100;
         let isRestoring = false;
-        let isBoardMode = false;
-        let clipboard = null; // For Copy/Paste
+        let isBoardMode = true; // Default to Board mode for v4.5
+        let clipboard = []; // For Copy/Paste
 
-        // OneNote Layout Config
+        // --- Config & Colors ---
         const BOARD_CONFIG = {
             colWidth: 320,   
             cardGap: 70,    
@@ -200,7 +208,6 @@
             indent: 25
         };
 
-        // Pastel Colors
         const LEVEL_COLORS = [
             { bg: '#FFD1DC', border: '#FFB7C5' }, 
             { bg: '#FFE6A7', border: '#FFD580' }, 
@@ -216,27 +223,58 @@
             return LEVEL_COLORS[idx];
         }
 
+        // --- Initialization ---
         window.onload = function() {
-            if(localStorage.getItem('theme') === 'dark') toggleTheme();
-            restoreSession();
-            
-            // Shortcuts
-            document.addEventListener('keydown', function(e) {
-                if(e.key === 'Delete' || e.key === 'Backspace') {
-                    if(network.getSelectedNodes().length > 0) deleteSelected();
-                    if(network.getSelectedEdges().length > 0) deleteSelectedEdge();
+            try {
+                if(localStorage.getItem('theme') === 'dark') toggleTheme();
+                // Check if session exists, else initialize empty
+                if (localStorage.getItem('mindMapSessionV4_5')) {
+                    restoreSession();
+                } else {
+                    // Initialize empty network to prevent errors
+                    drawMap([], []);
                 }
-                // Copy
-                if((e.ctrlKey || e.metaKey) && e.key === 'c') {
-                    duplicateSelected();
-                }
-                // Paste (Handled in duplicate function, but if we want true copy paste):
-                // Simplified: Ctrl+C clones immediately for now, or we can use clipboard.
-                // Let's implement true clipboard.
-            });
+            } catch(e) {
+                console.error("Init error:", e);
+                drawMap([], []);
+            }
 
+            setupKeyboardShortcuts();
             setupBoxSelection();
         };
+
+        function setupKeyboardShortcuts() {
+            document.addEventListener('keydown', function(e) {
+                // Delete
+                if(e.key === 'Delete' || e.key === 'Backspace') {
+                    // Only if not editing text
+                    if (document.activeElement.tagName !== "INPUT" && document.activeElement.tagName !== "TEXTAREA") {
+                        if(network.getSelectedNodes().length > 0) deleteSelected();
+                        if(network.getSelectedEdges().length > 0) deleteSelectedEdge();
+                    }
+                }
+                // Undo: Ctrl+Z
+                if((e.ctrlKey || e.metaKey) && e.key === 'z') {
+                    e.preventDefault();
+                    undo();
+                }
+                // Copy: Ctrl+C
+                if((e.ctrlKey || e.metaKey) && e.key === 'c') {
+                    // Don't intercept if in textarea
+                    if (document.activeElement.tagName !== "TEXTAREA") {
+                        e.preventDefault();
+                        copySelected();
+                    }
+                }
+                // Paste: Ctrl+V
+                if((e.ctrlKey || e.metaKey) && e.key === 'v') {
+                    if (document.activeElement.tagName !== "TEXTAREA") {
+                        e.preventDefault();
+                        pasteNodes();
+                    }
+                }
+            });
+        }
 
         // --- Box Selection Logic ---
         function setupBoxSelection() {
@@ -246,7 +284,6 @@
             let startX, startY;
 
             container.addEventListener('mousedown', function(e) {
-                // Activate only if CTRL is pressed
                 if (e.ctrlKey || e.metaKey) {
                     isSelecting = true;
                     const rect = container.getBoundingClientRect();
@@ -259,7 +296,6 @@
                     box.style.height = '0px';
                     box.style.display = 'block';
                     
-                    // Disable network interaction while selecting
                     network.setOptions({ interaction: { dragView: false } });
                 }
             });
@@ -285,13 +321,12 @@
                 if (!isSelecting) return;
                 isSelecting = false;
                 box.style.display = 'none';
-                network.setOptions({ interaction: { dragView: true } }); // Re-enable drag
+                network.setOptions({ interaction: { dragView: true } });
 
                 const rect = container.getBoundingClientRect();
                 const endX = e.clientX - rect.left;
                 const endY = e.clientY - rect.top;
 
-                // Calculate selection area in DOM coords
                 const selectRect = {
                     left: Math.min(startX, endX),
                     top: Math.min(startY, endY),
@@ -299,7 +334,6 @@
                     bottom: Math.max(startY, endY)
                 };
 
-                // Find nodes inside
                 const nodeIds = network.body.data.nodes.getIds();
                 const selectedNodes = [];
                 
@@ -311,46 +345,11 @@
                     }
                 });
 
-                network.selectNodes(selectedNodes);
                 if(selectedNodes.length > 0) {
+                    network.selectNodes(selectedNodes);
                     document.getElementById('contextToolbar').style.display = 'flex';
                 }
             });
-        }
-
-        // --- History ---
-        function saveHistory() {
-            if(!network || isRestoring) return;
-            const s = { nodes: network.body.data.nodes.get(), edges: network.body.data.edges.get() };
-            historyStack.push(JSON.stringify(s));
-            if(historyStack.length > MAX_HISTORY) historyStack.shift();
-        }
-
-        function undo() {
-            if(historyStack.length === 0) { showStatus("No more steps"); return; }
-            isRestoring = true;
-            const prevStateJSON = historyStack.pop();
-            const prevState = JSON.parse(prevStateJSON);
-            network.setData({ nodes: new vis.DataSet(prevState.nodes), edges: new vis.DataSet(prevState.edges) });
-            saveSession();
-            // If in board mode, re-layout to ensure lines are correct, but don't animate to avoid confusion
-            if(isBoardMode) setTimeout(() => { toggleEdges(false); layoutBoard(); isRestoring = false; }, 50);
-            else isRestoring = false;
-            showStatus("Undo successful");
-        }
-
-        function resetMap() {
-            if(!initialState) return;
-            if(confirm("Reset to original state?")) {
-                isRestoring = true;
-                const s = JSON.parse(initialState);
-                network.setData({nodes: new vis.DataSet(s.nodes), edges: new vis.DataSet(s.edges)});
-                historyStack = [];
-                isBoardMode = false;
-                toggleEdges(true);
-                saveSession();
-                isRestoring = false;
-            }
         }
 
         // --- Core Generator ---
@@ -365,6 +364,7 @@
 
             const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
             
+            // Level 0: Main Title
             let mainTopic = lines[0].replace(/["']/g, ""); 
             if(mainTopic.length > 50) mainTopic = mainTopic.substring(0, 50) + "...";
             
@@ -417,12 +417,18 @@
 
                 edges.push({from: parentId, to: nodeId});
                 lastNodeByLevel[depth] = nodeId;
+                // Clean up lower levels
                 for (let d = depth + 1; d <= 10; d++) delete lastNodeByLevel[d];
             }
 
             drawMap(nodes, edges);
             initialState = JSON.stringify({nodes: nodes, edges: edges});
-            setTimeout(() => setLayout('Board'), 100);
+            
+            // Force layout after small delay
+            setTimeout(() => {
+                isBoardMode = true;
+                layoutBoard();
+            }, 100);
             saveSession();
         }
 
@@ -432,13 +438,13 @@
             const options = {
                 nodes: { shape: 'box', margin: 10, borderWidth: 1, shadow: true, font: { face: 'Pretendard', color:'#333' } },
                 edges: { color: '#B0B0B0', width: 2, smooth: { type: 'cubicBezier', forceDirection: 'vertical', roundness: 0.4 } },
-                physics: false,
-                // Interaction settings to allow Ctrl+Select without dragging view
+                physics: false, // Ensure physics is off for manual layout stability
                 interaction: { hover: true, selectConnectedEdges: false, multiselect: true, dragView: true }
             };
 
             network = new vis.Network(container, data, options);
 
+            // Event Listeners
             network.on("selectNode", () => {
                 if(currentAction) return;
                 document.getElementById('contextToolbar').style.display = 'flex';
@@ -464,8 +470,8 @@
 
             network.on("doubleClick", (params) => { if(params.nodes.length > 0) editNodeText(); });
             
-            // 🔥 v4.4 FIXED GROUP MOVE & AUTO-SNAP 🔥
-            let dragStartPos = {}; // Store original positions of all selected nodes
+            // --- Drag & Drop Logic (Group Move) ---
+            let dragStartPos = {};
 
             network.on("dragStart", function(params) {
                 if (params.nodes.length > 0) {
@@ -480,31 +486,21 @@
                 
                 saveHistory();
                 const selectedIds = params.nodes;
-                
-                // 1. Calculate Delta (How much did we move?) using the first selected node
-                // Note: Vis.js moves selected nodes visually together.
                 const firstId = selectedIds[0];
                 const newPos = network.getPositions([firstId])[firstId];
-                const oldPos = dragStartPos[firstId] || newPos;
-                const deltaX = newPos.x - oldPos.x;
-                const deltaY = newPos.y - oldPos.y;
-
-                // 2. Identify "Leaders" (Nodes that are NOT children of other selected nodes)
-                // This prevents double-moving children if their parent is also selected.
-                const edgesDS = network.body.data.edges;
+                
                 const nodesDS = network.body.data.nodes;
+                const edgesDS = network.body.data.edges;
                 const allEdges = edgesDS.get();
                 
+                // Identify "Leaders" (Nodes not children of other selected nodes)
                 let leaders = selectedIds.filter(id => {
-                    // Check if parent is also in selectedIds
                     const incoming = allEdges.find(e => e.to === id);
-                    if (incoming && selectedIds.includes(incoming.from)) return false; // I am a child of selection
-                    return true; // I am a leader of this move group
+                    if (incoming && selectedIds.includes(incoming.from)) return false; 
+                    return true; 
                 });
 
-                // 3. Move Leaders & Snap
-                // Find target column for the group based on the first leader
-                const rootId = 1;
+                // Find Target Column based on Leader Position
                 const allNodes = nodesDS.get();
                 let columns = allNodes.filter(n => n.level === 1);
                 columns.sort((a,b) => a.x - b.x);
@@ -512,48 +508,41 @@
                 let targetCol = null;
                 let minDist = Infinity;
                 
-                // Use the new X position of the first leader to find column
                 columns.forEach(col => {
                     const dist = Math.abs(col.x - newPos.x);
                     if(dist < minDist) { minDist = dist; targetCol = col; }
                 });
 
+                const rootId = 1;
+
                 leaders.forEach(nodeId => {
                     if (nodeId === rootId) return;
                     
                     const pos = network.getPositions([nodeId])[nodeId];
-                    // Update visual pos
                     nodesDS.update({ id: nodeId, x: pos.x, y: pos.y });
 
-                    // Re-parenting Logic
-                    // A. Promote to Header (High Up)
+                    // A. Promote to Header
                     if (pos.y < BOARD_CONFIG.headerY - 50) {
                         updateSubtreeLevels(nodeId, 1, nodesDS, edgesDS);
                         reParentNode(nodeId, rootId, edgesDS);
                     }
                     // B. Snap to Column
                     else if (targetCol && targetCol.id !== nodeId) {
-                        // If it was already a header, demote it. If it was a card, just move it.
-                        // We set base level to 2 for cards in columns.
                         updateSubtreeLevels(nodeId, 2, nodesDS, edgesDS);
                         reParentNode(nodeId, targetCol.id, edgesDS);
                     }
                 });
 
-                // 4. Force Layout to snap everyone into place
                 layoutBoard();
                 saveSession();
             });
-        });
         }
 
-        // --- Recursive helpers ---
+        // --- Recursive Helpers ---
         function updateSubtreeLevels(rootId, newBaseLevel, nodesDS, edgesDS) {
             const node = nodesDS.get(rootId);
-            const currentLevel = node.level;
-            const diff = newBaseLevel - currentLevel;
+            const diff = newBaseLevel - node.level;
             
-            // Helper to recurse
             function apply(nid, d) {
                 let n = nodesDS.get(nid);
                 let nextLevel = n.level + d;
@@ -570,7 +559,7 @@
         function reParentNode(childId, newParentId, edgesDS) {
             if (childId === 1 || childId === newParentId) return;
             const allEdges = edgesDS.get();
-            const parentEdge = allEdges.find(e => e.to === childId); // Assuming tree
+            const parentEdge = allEdges.find(e => e.to === childId); 
             
             if (parentEdge) {
                 if (parentEdge.from !== newParentId) {
@@ -583,59 +572,62 @@
         }
 
         // --- Copy / Paste Logic ---
-        function duplicateSelected() {
+        function copySelected() {
             const selectedIds = network.getSelectedNodes();
             if (selectedIds.length === 0) return;
+            clipboard = selectedIds; // Store IDs
+            showStatus(`Copied ${selectedIds.length} nodes`);
+        }
+
+        function duplicateSelected() {
+            copySelected();
+            pasteNodes();
+        }
+
+        function pasteNodes() {
+            if (!clipboard || clipboard.length === 0) return;
             saveHistory();
 
             const nodesDS = network.body.data.nodes;
             const edgesDS = network.body.data.edges;
             const allEdges = edgesDS.get();
-
-            // Store mapping from Old ID -> New ID
             let idMap = {};
 
-            selectedIds.forEach(oldId => {
+            clipboard.forEach(oldId => {
                 const oldNode = nodesDS.get(oldId);
-                const newId = Date.now() + Math.floor(Math.random()*1000);
+                if (!oldNode) return;
+                const newId = Date.now() + Math.floor(Math.random()*10000);
                 idMap[oldId] = newId;
 
-                // Offset position slightly
                 const pos = network.getPositions([oldId])[oldId];
                 
                 nodesDS.add({
                     ...oldNode,
                     id: newId,
-                    x: pos.x + 20,
-                    y: pos.y + 20,
-                    label: oldNode.label + " (Copy)"
+                    x: pos.x + 30, // Offset
+                    y: pos.y + 30,
+                    label: oldNode.label
                 });
             });
 
-            // Re-create internal edges within the selection
-            // If parent and child are both selected, link the copies.
-            // If only child is selected, link copy to original parent.
-            selectedIds.forEach(oldId => {
+            // Re-link
+            clipboard.forEach(oldId => {
                 const incoming = allEdges.find(e => e.to === oldId);
                 if (incoming) {
                     const newChildId = idMap[oldId];
-                    let newParentId = idMap[incoming.from]; // Check if parent was copied
+                    // If parent was copied, link to new parent. Else link to old parent.
+                    let newParentId = idMap[incoming.from] ? idMap[incoming.from] : incoming.from;
                     
-                    if (!newParentId) {
-                        // Parent wasn't copied, link to original parent
-                        newParentId = incoming.from;
+                    if (newChildId) {
+                        edgesDS.add({from: newParentId, to: newChildId, hidden: isBoardMode});
                     }
-                    
-                    edgesDS.add({from: newParentId, to: newChildId, hidden: isBoardMode});
                 }
             });
 
-            // Select the new copies
             network.selectNodes(Object.values(idMap));
-            
             if(isBoardMode) layoutBoard();
             saveSession();
-            showStatus("Nodes Duplicated!");
+            showStatus("Pasted!");
         }
 
         // --- Standard Actions ---
@@ -670,7 +662,7 @@
         function deleteSelected() {
             const ids = network.getSelectedNodes(); if(ids.length===0) return;
             saveHistory();
-            network.body.data.nodes.remove(ids); // Also removes edges
+            network.body.data.nodes.remove(ids);
             document.getElementById('contextToolbar').style.display = 'none';
             saveSession();
             if(isBoardMode) setTimeout(layoutBoard, 50);
@@ -718,7 +710,13 @@
             document.body.style.cursor = "default"; showStatus("");
         }
 
-        // --- Utilities ---
+        // --- Layout & Theme ---
+        function toggleTheme() {
+            isDarkMode = !isDarkMode;
+            document.documentElement.setAttribute('data-theme', isDarkMode ? 'dark' : 'light');
+            localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
+        }
+
         function setLayout(t) {
             saveHistory();
             if(!network) return;
@@ -762,7 +760,7 @@
             const allEdges = edges.get();
 
             let columns = allNodes.filter(n => n.level === 1);
-            // Sort Columns by X (Visual Order) to maintain user preference
+            columns = [...new Set(columns)];
             columns.sort((a,b) => (a.x || 0) - (b.x || 0));
 
             const startX = -((columns.length * BOARD_CONFIG.colWidth) / 2) + (BOARD_CONFIG.colWidth/2);
@@ -778,7 +776,6 @@
                 let currentY = cy + BOARD_CONFIG.cardGap;
                 function placeDescendants(parentId, depth) {
                     let children = allNodes.filter(n => allEdges.some(e => e.from === parentId && e.to === n.id));
-                    // Sort by Y to maintain vertical order
                     children.sort((a,b) => (a.y || 0) - (b.y || 0));
                     children.forEach(child => {
                         updates.push({
@@ -795,15 +792,10 @@
 
             nodes.update(updates);
             network.setOptions({ physics: false, layout: { hierarchical: { enabled: false } } });
-            // network.fit(); // Optional: don't auto zoom every time
             showStatus("Board Aligned");
         }
 
-        function toggleTheme() {
-            isDarkMode = !isDarkMode;
-            document.documentElement.setAttribute('data-theme', isDarkMode ? 'dark' : 'light');
-            localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
-        }
+        // --- Save/Load/Export ---
         function showStatus(m) {
             const el = document.getElementById('statusMessage');
             el.innerText = m; el.style.opacity = m ? 1 : 0;
@@ -811,17 +803,19 @@
         }
         function saveSession() {
             if(!network) return;
-            const d = { text: document.getElementById('inputText').value, nodes: network.body.data.nodes.get(), edges: network.body.data.edges.get(), initialState: initialState };
-            localStorage.setItem('mindMapSessionV4_4', JSON.stringify(d));
+            try {
+                const d = { text: document.getElementById('inputText').value, nodes: network.body.data.nodes.get(), edges: network.body.data.edges.get(), initialState: initialState };
+                localStorage.setItem('mindMapSessionV4_5', JSON.stringify(d));
+            } catch(e) {}
         }
         function restoreSession() {
-            const s = localStorage.getItem('mindMapSessionV4_4');
+            const s = localStorage.getItem('mindMapSessionV4_5');
             if(s) { try { const d = JSON.parse(s); document.getElementById('inputText').value = d.text||""; initialState = d.initialState; drawMap(d.nodes, d.edges); } catch(e){} }
         }
         function saveProject() { if(!network) return; const d = { nodes: network.body.data.nodes.get(), edges: network.body.data.edges.get() }; const b = new Blob([JSON.stringify(d)], {type:"text/json"}); const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = "mindmap.json"; a.click(); }
         function loadProject(e) { const r = new FileReader(); r.onload = function(evt) { const d = JSON.parse(evt.target.result); drawMap(d.nodes, d.edges); }; r.readAsText(e.target.files[0]); }
         async function exportMap(t) { const el = document.getElementById('mynetwork'); const c = await html2canvas(el); const l = document.createElement('a'); l.download = 'mindmap.png'; l.href = c.toDataURL(); l.click(); }
-        async function exportWord() { const el = document.getElementById('mynetwork'); const bg = el.style.backgroundColor; el.style.backgroundColor = "#fff"; const c = await html2canvas(el); const d = c.toDataURL('image/png'); el.style.backgroundColor = bg; const h = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Export</title></head><body><h1>Mind Map</h1><br><img src="${d}" style="width:100%"><br><p>v4.4</p></body></html>`; const b = new Blob(['\ufeff', h], { type: 'application/msword' }); const l = document.createElement('a'); l.href = URL.createObjectURL(b); l.download = 'mindmap.doc'; l.click(); }
+        async function exportWord() { const el = document.getElementById('mynetwork'); const bg = el.style.backgroundColor; el.style.backgroundColor = "#fff"; const c = await html2canvas(el); const d = c.toDataURL('image/png'); el.style.backgroundColor = bg; const h = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Export</title></head><body><h1>Mind Map</h1><br><img src="${d}" style="width:100%"><br><p>v4.5</p></body></html>`; const b = new Blob(['\ufeff', h], { type: 'application/msword' }); const l = document.createElement('a'); l.href = URL.createObjectURL(b); l.download = 'mindmap.doc'; l.click(); }
     </script>
 </body>
 </html>
