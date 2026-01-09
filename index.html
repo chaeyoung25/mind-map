@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Mind Map (v4.7 Final Fix)</title>
+    <title>AI Mind Map (v4.8 Final Fix)</title>
     <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -16,7 +16,7 @@
             --text-color: #1D1D1F;
             --border-color: rgba(0, 0, 0, 0.1);
             --accent-color: #007AFF;
-            --selection-blue: rgba(0, 122, 255, 0.15);
+            --selection-blue: rgba(0, 122, 255, 0.2);
             --selection-border: #007AFF;
         }
 
@@ -69,8 +69,9 @@
 
         #mynetwork { width: 100%; height: 100%; outline: none; cursor: default; }
         
+        /* 🔥 FIXED POSITION for accurate mouse tracking */
         #selectionBox {
-            position: absolute;
+            position: fixed; 
             background-color: var(--selection-blue);
             border: 1px solid var(--selection-border);
             display: none;
@@ -136,9 +137,9 @@
             <div style="margin-top:auto;">
                 <p style="font-size:0.75rem; opacity:0.6; line-height:1.5; margin-bottom:0;">
                     * <b>Multi-Select:</b> Ctrl + Drag<br>
-                    * <b>Layouts:</b> Free/Board Fixed.
+                    * <b>Layouts:</b> Free Mode Fixed.
                 </p>
-                <div class="version-tag">Version 4.7</div>
+                <div class="version-tag">Version 4.8</div>
             </div>
         </div>
 
@@ -216,7 +217,7 @@
 
         window.onload = function() {
             if(localStorage.getItem('theme') === 'dark') toggleTheme();
-            if(localStorage.getItem('mindMapSessionV4_7')) {
+            if(localStorage.getItem('mindMapSessionV4_8')) {
                 restoreSession();
             } else {
                 drawMap([{id:1, label:'Main Topic', level:0, color:{background:'#FFD1DC'}}], []);
@@ -243,6 +244,7 @@
             });
         }
 
+        // --- Fixed Box Selection ---
         function setupBoxSelection() {
             const container = document.getElementById('mynetwork');
             const box = document.getElementById('selectionBox');
@@ -252,9 +254,9 @@
             container.addEventListener('mousedown', function(e) {
                 if (e.ctrlKey || e.metaKey) {
                     isSelecting = true;
-                    const rect = container.getBoundingClientRect();
-                    startX = e.clientX - rect.left;
-                    startY = e.clientY - rect.top;
+                    // Use clientX/Y directly for Fixed Position
+                    startX = e.clientX;
+                    startY = e.clientY;
                     
                     box.style.left = startX + 'px';
                     box.style.top = startY + 'px';
@@ -268,9 +270,8 @@
 
             window.addEventListener('mousemove', function(e) {
                 if (!isSelecting) return;
-                const rect = container.getBoundingClientRect();
-                const currentX = e.clientX - rect.left;
-                const currentY = e.clientY - rect.top;
+                const currentX = e.clientX;
+                const currentY = e.clientY;
 
                 const width = Math.abs(currentX - startX);
                 const height = Math.abs(currentY - startY);
@@ -289,10 +290,10 @@
                 box.style.display = 'none';
                 network.setOptions({ interaction: { dragView: true } });
 
-                const rect = container.getBoundingClientRect();
-                const endX = e.clientX - rect.left;
-                const endY = e.clientY - rect.top;
+                const endX = e.clientX;
+                const endY = e.clientY;
 
+                // Visual Box Rect
                 const selectRect = {
                     left: Math.min(startX, endX),
                     top: Math.min(startY, endY),
@@ -303,10 +304,20 @@
                 const nodeIds = network.body.data.nodes.getIds();
                 const selectedNodes = [];
                 
+                // Get Canvas bounding box to offset calculations
+                const canvasRect = container.getBoundingClientRect();
+
                 nodeIds.forEach(id => {
-                    const pos = network.canvasToDOM(network.getPositions([id])[id]);
-                    if (pos.x >= selectRect.left && pos.x <= selectRect.right &&
-                        pos.y >= selectRect.top && pos.y <= selectRect.bottom) {
+                    // Convert Node Canvas Position -> DOM (Screen) Position
+                    const nodeCanvasPos = network.getPositions([id])[id];
+                    const domPos = network.canvasToDOM(nodeCanvasPos);
+                    
+                    // Add Canvas offset to get absolute screen coordinates matches e.clientX/Y
+                    const absoluteX = domPos.x + canvasRect.left;
+                    const absoluteY = domPos.y + canvasRect.top;
+
+                    if (absoluteX >= selectRect.left && absoluteX <= selectRect.right &&
+                        absoluteY >= selectRect.top && absoluteY <= selectRect.bottom) {
                         selectedNodes.push(id);
                     }
                 });
@@ -352,15 +363,15 @@
             }
         }
 
-        // 🔥 Layout Switching (Fixed v4.7) 🔥
+        // 🔥 Layout Switching (Fixed: Unpin Nodes for Free Mode) 🔥
         function setLayout(type) {
             saveHistory();
             if (!network) return;
 
-            // Reset FIXED status for ALL nodes when switching layout
+            // 1. Unfix ALL nodes first so they can move
             const allNodes = network.body.data.nodes.get();
-            const updates = allNodes.map(n => ({id: n.id, fixed: false}));
-            network.body.data.nodes.update(updates);
+            const unfixUpdates = allNodes.map(n => ({id: n.id, fixed: false}));
+            network.body.data.nodes.update(unfixUpdates);
 
             if (type === 'Board') {
                 isBoardMode = true;
@@ -383,15 +394,14 @@
             } else { 
                 // Free / Radial Mode
                 options.layout = { hierarchical: { enabled: false } };
-                // ⚠️ Important: Clear X/Y so physics can take over
-                const clearPos = allNodes.map(n => ({id: n.id, x: null, y: null}));
-                network.body.data.nodes.update(clearPos);
-                
                 options.physics = { 
                     enabled: true, 
                     solver: 'forceAtlas2Based', 
                     stabilization: { iterations: 1000 } 
                 };
+                // IMPORTANT: Clear coordinates to let physics work
+                const clearPos = allNodes.map(n => ({id: n.id, x: undefined, y: undefined}));
+                network.body.data.nodes.update(clearPos);
             }
 
             network.setOptions(options);
@@ -420,7 +430,7 @@
             let updates = [];
             
             // Set Root Fixed
-            updates.push({id: rootId, x: 0, y: BOARD_CONFIG.headerY - 150, fixed: false});
+            updates.push({id: rootId, x: 0, y: BOARD_CONFIG.headerY - 150, fixed: false}); // Allow move manually
 
             columns.forEach((col, cIdx) => {
                 const cx = startX + (cIdx * BOARD_CONFIG.colWidth);
@@ -436,7 +446,7 @@
                             id: child.id,
                             x: cx + (depth * BOARD_CONFIG.indent),
                             y: currentY,
-                            fixed: false // Allow drag, but position manually
+                            fixed: false 
                         });
                         currentY += BOARD_CONFIG.cardGap;
                         placeDescendants(child.id, depth + 1);
@@ -446,7 +456,6 @@
             });
 
             nodes.update(updates);
-            // Disable physics for Board, but allow manual movement (fixed: false)
             network.setOptions({ physics: false, layout: { hierarchical: { enabled: false } } });
         }
 
@@ -809,16 +818,16 @@
         function saveSession() {
             if(!network) return;
             const d = { text: document.getElementById('inputText').value, nodes: network.body.data.nodes.get(), edges: network.body.data.edges.get(), initialState: initialState };
-            localStorage.setItem('mindMapSessionV4_7', JSON.stringify(d));
+            localStorage.setItem('mindMapSessionV4_8', JSON.stringify(d));
         }
         function restoreSession() {
-            const s = localStorage.getItem('mindMapSessionV4_7');
+            const s = localStorage.getItem('mindMapSessionV4_8');
             if(s) { try { const d = JSON.parse(s); document.getElementById('inputText').value = d.text||""; initialState = d.initialState; drawMap(d.nodes, d.edges); } catch(e){} }
         }
         function saveProject() { if(!network) return; const d = { nodes: network.body.data.nodes.get(), edges: network.body.data.edges.get() }; const b = new Blob([JSON.stringify(d)], {type:"text/json"}); const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = "mindmap.json"; a.click(); }
         function loadProject(e) { const r = new FileReader(); r.onload = function(evt) { const d = JSON.parse(evt.target.result); drawMap(d.nodes, d.edges); }; r.readAsText(e.target.files[0]); }
         async function exportMap(t) { const el = document.getElementById('mynetwork'); const c = await html2canvas(el); const l = document.createElement('a'); l.download = 'mindmap.png'; l.href = c.toDataURL(); l.click(); }
-        async function exportWord() { const el = document.getElementById('mynetwork'); const bg = el.style.backgroundColor; el.style.backgroundColor = "#fff"; const c = await html2canvas(el); const d = c.toDataURL('image/png'); el.style.backgroundColor = bg; const h = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Export</title></head><body><h1>Mind Map</h1><br><img src="${d}" style="width:100%"><br><p>v4.7</p></body></html>`; const b = new Blob(['\ufeff', h], { type: 'application/msword' }); const l = document.createElement('a'); l.href = URL.createObjectURL(b); l.download = 'mindmap.doc'; l.click(); }
+        async function exportWord() { const el = document.getElementById('mynetwork'); const bg = el.style.backgroundColor; el.style.backgroundColor = "#fff"; const c = await html2canvas(el); const d = c.toDataURL('image/png'); el.style.backgroundColor = bg; const h = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Export</title></head><body><h1>Mind Map</h1><br><img src="${d}" style="width:100%"><br><p>v4.8</p></body></html>`; const b = new Blob(['\ufeff', h], { type: 'application/msword' }); const l = document.createElement('a'); l.href = URL.createObjectURL(b); l.download = 'mindmap.doc'; l.click(); }
     </script>
 </body>
 </html>
