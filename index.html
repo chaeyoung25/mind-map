@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Mind Map (v2.3)</title>
+    <title>AI Mind Map (v2.4)</title>
     <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -142,10 +142,10 @@
 
             <div style="margin-top:auto;">
                 <p style="font-size:0.75rem; opacity:0.6; line-height:1.5; margin-bottom:0;">
-                    * <b>Board View:</b> Drag parent moves children.<br>
-                    * <b>Undo:</b> Continuous history supported.
+                    * <b>Board View:</b> Drop at bottom to add last.<br>
+                    * <b>Drag Up:</b> Move back to top level.
                 </p>
-                <div class="version-tag">Version 2.3</div>
+                <div class="version-tag">Version 2.4</div>
             </div>
         </div>
 
@@ -194,8 +194,8 @@
         // --- History Variables ---
         let historyStack = [];
         let initialState = null;
-        const MAX_HISTORY = 100; // Increased history size
-        let isRestoring = false; // Flag to prevent saving history during undo
+        const MAX_HISTORY = 100;
+        let isRestoring = false;
         let isBoardMode = false;
 
         const BOARD_CONFIG = {
@@ -217,7 +217,7 @@
 
         // --- Improved History System ---
         function saveHistory() {
-            if(!network || isRestoring) return; // Don't save if we are currently undoing
+            if(!network || isRestoring) return;
             const s = { nodes: network.body.data.nodes.get(), edges: network.body.data.edges.get() };
             historyStack.push(JSON.stringify(s));
             if(historyStack.length > MAX_HISTORY) historyStack.shift();
@@ -225,29 +225,22 @@
 
         function undo() {
             if(historyStack.length === 0) { showStatus("No more steps to undo"); return; }
-            
-            // Set flag to true so this restoration isn't saved as a new action
             isRestoring = true;
-            
             const prevStateJSON = historyStack.pop();
             const prevState = JSON.parse(prevStateJSON);
-            
             network.setData({
                 nodes: new vis.DataSet(prevState.nodes), 
                 edges: new vis.DataSet(prevState.edges)
             });
-            
             saveSession();
-            
             if(isBoardMode) {
-                // Re-apply board layout visual settings without physics
                 setTimeout(() => {
                     toggleEdges(false);
-                    layoutBoard();
-                    isRestoring = false; // Reset flag after layout
+                    // Do not re-layout here to prevent jumping, just restore visual state
+                    isRestoring = false; 
                 }, 50);
             } else {
-                isRestoring = false; // Reset flag immediately
+                isRestoring = false;
             }
             showStatus("Undo successful");
         }
@@ -272,7 +265,6 @@
             const keywordsRaw = document.getElementById('keywords').value;
             if(!text) { alert("Please input text."); return; }
 
-            // Clear history on new generation
             historyStack = [];
 
             let keywordList = [];
@@ -357,44 +349,71 @@
 
             network.on("doubleClick", (params) => { if(params.nodes.length > 0) editNodeText(); });
             
-            // 🔥 AUTO-SNAP & GROUP MOVE LOGIC 🔥
+            // 🔥 ADVANCED AUTO-SNAP (INSERT ANYWHERE) 🔥
             network.on("dragEnd", function (params) {
                 if (isBoardMode && params.nodes.length > 0) {
                     saveHistory();
                     const draggedNodeId = params.nodes[0];
                     const draggedPos = network.getPositions([draggedNodeId])[draggedNodeId];
+                    const rootId = 1;
+
+                    // 1. UPDATE POSITION FIRST (Crucial for sorting)
+                    // We must save the "dropped" coordinates to the dataset so layoutBoard can sort by Y
+                    network.body.data.nodes.update({id: draggedNodeId, x: draggedPos.x, y: draggedPos.y});
+
+                    // 2. Logic: Move back to ROOT if dragged high up (above headers)
+                    // or Logic: Snap to nearest column
+                    
                     const nodes = network.body.data.nodes.get();
                     const edges = network.body.data.edges.get();
-                    const rootId = 1;
                     
+                    // Identify columns (Level 1)
                     let columns = nodes.filter(n => { return edges.some(e => e.from === rootId && e.to === n.id); });
 
-                    let nearestCol = null;
-                    let minDistance = Infinity;
+                    // Check if dragged near ROOT (e.g. Y < headerY - buffer)
+                    if (draggedPos.y < BOARD_CONFIG.headerY - 50) {
+                        // Re-parent to ROOT (Make it a column)
+                        reParentNode(draggedNodeId, rootId, edges);
+                    } else {
+                        // Find nearest column by X
+                        let nearestCol = null;
+                        let minDistance = Infinity;
 
-                    columns.forEach(col => {
-                        const dist = Math.abs(col.x - draggedPos.x);
-                        if(dist < minDistance) { minDistance = dist; nearestCol = col; }
-                    });
+                        columns.forEach(col => {
+                            const dist = Math.abs(col.x - draggedPos.x);
+                            if(dist < minDistance) { minDistance = dist; nearestCol = col; }
+                        });
 
-                    if (nearestCol && nearestCol.id !== draggedNodeId && draggedNodeId !== rootId) {
-                        const connectedEdges = network.getConnectedEdges(draggedNodeId);
-                        // Find if dragged node is a child of something
-                        const parentEdge = edges.find(e => e.to === draggedNodeId && connectedEdges.includes(e.id));
-                        
-                        if (parentEdge) {
-                             network.body.data.edges.remove(parentEdge.id);
-                             // Re-link parent. Because layoutBoard is recursive, 
-                             // children of draggedNode will automatically follow visually.
-                             network.body.data.edges.add({from: nearestCol.id, to: draggedNodeId, hidden: true});
+                        if (nearestCol && nearestCol.id !== draggedNodeId && draggedNodeId !== rootId) {
+                            // Re-parent to nearest Column
+                            reParentNode(draggedNodeId, nearestCol.id, edges);
                         }
                     }
+
+                    // 3. Layout will now sort by the new Y coordinates we saved in step 1
                     layoutBoard();
                     saveSession();
                 } else {
                     saveSession();
                 }
             });
+        }
+
+        // Helper to change parent
+        function reParentNode(childId, newParentId, allEdges) {
+            const connectedEdges = network.getConnectedEdges(childId);
+            const currentParentEdge = allEdges.find(e => e.to === childId && connectedEdges.includes(e.id));
+            
+            if (currentParentEdge) {
+                // If parent changed, remove old edge
+                if (currentParentEdge.from !== newParentId) {
+                    network.body.data.edges.remove(currentParentEdge.id);
+                    network.body.data.edges.add({from: newParentId, to: childId, hidden: true});
+                }
+            } else {
+                // No parent (e.g. was orphan), just add
+                network.body.data.edges.add({from: newParentId, to: childId, hidden: true});
+            }
         }
 
         // --- Actions ---
@@ -522,7 +541,6 @@
             network.body.data.edges.update(updates);
         }
 
-        // 🔥 Recursive Board Layout (Handles Entire Subtrees)
         function layoutBoard() {
             const nodes = network.body.data.nodes;
             const edges = network.body.data.edges;
@@ -547,7 +565,7 @@
                 let stack = [];
                 function collectDescendants(parentId) {
                     let children = allNodes.filter(n => allEdges.some(e => e.from === parentId && e.to === n.id));
-                    // Sort by existing Y to maintain drag order
+                    // Sort by existing Y to maintain drag order (Crucial for insert!)
                     children.sort((a,b) => (a.y || 0) - (b.y || 0));
                     
                     children.forEach(child => {
@@ -558,7 +576,6 @@
                 
                 collectDescendants(col.id);
 
-                // Stack them vertically
                 stack.forEach((card, cIndex) => {
                     updates.push({ 
                         id: card.id, 
@@ -587,16 +604,16 @@
         function saveSession() {
             if(!network) return;
             const d = { text: document.getElementById('inputText').value, nodes: network.body.data.nodes.get(), edges: network.body.data.edges.get(), initialState: initialState };
-            localStorage.setItem('mindMapSessionV2_3', JSON.stringify(d));
+            localStorage.setItem('mindMapSessionV2_4', JSON.stringify(d));
         }
         function restoreSession() {
-            const s = localStorage.getItem('mindMapSessionV2_3');
+            const s = localStorage.getItem('mindMapSessionV2_4');
             if(s) { try { const d = JSON.parse(s); document.getElementById('inputText').value = d.text||""; initialState = d.initialState; drawMap(d.nodes, d.edges); } catch(e){} }
         }
         function saveProject() { if(!network) return; const d = { nodes: network.body.data.nodes.get(), edges: network.body.data.edges.get() }; const b = new Blob([JSON.stringify(d)], {type:"text/json"}); const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = "mindmap.json"; a.click(); }
         function loadProject(e) { const r = new FileReader(); r.onload = function(evt) { const d = JSON.parse(evt.target.result); drawMap(d.nodes, d.edges); }; r.readAsText(e.target.files[0]); }
         async function exportMap(t) { const el = document.getElementById('mynetwork'); const c = await html2canvas(el); const l = document.createElement('a'); l.download = 'mindmap.png'; l.href = c.toDataURL(); l.click(); }
-        async function exportWord() { const el = document.getElementById('mynetwork'); const bg = el.style.backgroundColor; el.style.backgroundColor = "#fff"; const c = await html2canvas(el); const d = c.toDataURL('image/png'); el.style.backgroundColor = bg; const h = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Export</title></head><body><h1>Mind Map</h1><br><img src="${d}" style="width:100%"><br><p>v2.3</p></body></html>`; const b = new Blob(['\ufeff', h], { type: 'application/msword' }); const l = document.createElement('a'); l.href = URL.createObjectURL(b); l.download = 'mindmap.doc'; l.click(); }
+        async function exportWord() { const el = document.getElementById('mynetwork'); const bg = el.style.backgroundColor; el.style.backgroundColor = "#fff"; const c = await html2canvas(el); const d = c.toDataURL('image/png'); el.style.backgroundColor = bg; const h = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Export</title></head><body><h1>Mind Map</h1><br><img src="${d}" style="width:100%"><br><p>v2.4</p></body></html>`; const b = new Blob(['\ufeff', h], { type: 'application/msword' }); const l = document.createElement('a'); l.href = URL.createObjectURL(b); l.download = 'mindmap.doc'; l.click(); }
     </script>
 </body>
 </html>
