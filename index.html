@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Mind Map (v4.6 Final Fix)</title>
+    <title>AI Mind Map (v4.7 Final Fix)</title>
     <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -136,9 +136,9 @@
             <div style="margin-top:auto;">
                 <p style="font-size:0.75rem; opacity:0.6; line-height:1.5; margin-bottom:0;">
                     * <b>Multi-Select:</b> Ctrl + Drag<br>
-                    * <b>Layouts:</b> All buttons fixed.
+                    * <b>Layouts:</b> Free/Board Fixed.
                 </p>
-                <div class="version-tag">Version 4.6</div>
+                <div class="version-tag">Version 4.7</div>
             </div>
         </div>
 
@@ -216,14 +216,11 @@
 
         window.onload = function() {
             if(localStorage.getItem('theme') === 'dark') toggleTheme();
-            
-            // Initialize Empty Map if no session
-            if(localStorage.getItem('mindMapSessionV4_6')) {
+            if(localStorage.getItem('mindMapSessionV4_7')) {
                 restoreSession();
             } else {
                 drawMap([{id:1, label:'Main Topic', level:0, color:{background:'#FFD1DC'}}], []);
             }
-
             setupKeyboardShortcuts();
             setupBoxSelection();
         };
@@ -246,7 +243,6 @@
             });
         }
 
-        // --- Box Selection ---
         function setupBoxSelection() {
             const container = document.getElementById('mynetwork');
             const box = document.getElementById('selectionBox');
@@ -356,10 +352,15 @@
             }
         }
 
-        // --- Layout Switching Logic (FIXED v4.6) ---
+        // 🔥 Layout Switching (Fixed v4.7) 🔥
         function setLayout(type) {
             saveHistory();
             if (!network) return;
+
+            // Reset FIXED status for ALL nodes when switching layout
+            const allNodes = network.body.data.nodes.get();
+            const updates = allNodes.map(n => ({id: n.id, fixed: false}));
+            network.body.data.nodes.update(updates);
 
             if (type === 'Board') {
                 isBoardMode = true;
@@ -369,14 +370,9 @@
                 return;
             }
 
-            // Switching to Tree/Block/Free
+            // For other layouts
             isBoardMode = false;
             toggleEdges(true);
-
-            // ⚠️ CRITICAL FIX: Unlock nodes so they can move in other layouts
-            const nodes = network.body.data.nodes;
-            const updates = nodes.get().map(n => ({ id: n.id, x: null, y: null, fixed: false }));
-            nodes.update(updates);
 
             let options = { physics: { enabled: false } };
 
@@ -384,8 +380,13 @@
                 options.layout = { hierarchical: { enabled: true, direction: "UD", levelSeparation: 150, sortMethod: 'hubsize' } };
             } else if (type === 'LR') {
                 options.layout = { hierarchical: { enabled: true, direction: "LR", levelSeparation: 200, sortMethod: 'hubsize' } };
-            } else { // Free
+            } else { 
+                // Free / Radial Mode
                 options.layout = { hierarchical: { enabled: false } };
+                // ⚠️ Important: Clear X/Y so physics can take over
+                const clearPos = allNodes.map(n => ({id: n.id, x: null, y: null}));
+                network.body.data.nodes.update(clearPos);
+                
                 options.physics = { 
                     enabled: true, 
                     solver: 'forceAtlas2Based', 
@@ -418,12 +419,13 @@
             const startX = -((columns.length * BOARD_CONFIG.colWidth) / 2) + (BOARD_CONFIG.colWidth/2);
             let updates = [];
             
-            updates.push({id: rootId, x: 0, y: BOARD_CONFIG.headerY - 150, fixed: true});
+            // Set Root Fixed
+            updates.push({id: rootId, x: 0, y: BOARD_CONFIG.headerY - 150, fixed: false});
 
             columns.forEach((col, cIdx) => {
                 const cx = startX + (cIdx * BOARD_CONFIG.colWidth);
                 const cy = BOARD_CONFIG.headerY;
-                updates.push({ id: col.id, x: cx, y: cy, fixed: true });
+                updates.push({ id: col.id, x: cx, y: cy, fixed: false });
 
                 let currentY = cy + BOARD_CONFIG.cardGap;
                 function placeDescendants(parentId, depth) {
@@ -434,7 +436,7 @@
                             id: child.id,
                             x: cx + (depth * BOARD_CONFIG.indent),
                             y: currentY,
-                            fixed: true // Fix position for Board mode
+                            fixed: false // Allow drag, but position manually
                         });
                         currentY += BOARD_CONFIG.cardGap;
                         placeDescendants(child.id, depth + 1);
@@ -444,6 +446,7 @@
             });
 
             nodes.update(updates);
+            // Disable physics for Board, but allow manual movement (fixed: false)
             network.setOptions({ physics: false, layout: { hierarchical: { enabled: false } } });
         }
 
@@ -806,16 +809,16 @@
         function saveSession() {
             if(!network) return;
             const d = { text: document.getElementById('inputText').value, nodes: network.body.data.nodes.get(), edges: network.body.data.edges.get(), initialState: initialState };
-            localStorage.setItem('mindMapSessionV4_6', JSON.stringify(d));
+            localStorage.setItem('mindMapSessionV4_7', JSON.stringify(d));
         }
         function restoreSession() {
-            const s = localStorage.getItem('mindMapSessionV4_6');
+            const s = localStorage.getItem('mindMapSessionV4_7');
             if(s) { try { const d = JSON.parse(s); document.getElementById('inputText').value = d.text||""; initialState = d.initialState; drawMap(d.nodes, d.edges); } catch(e){} }
         }
         function saveProject() { if(!network) return; const d = { nodes: network.body.data.nodes.get(), edges: network.body.data.edges.get() }; const b = new Blob([JSON.stringify(d)], {type:"text/json"}); const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = "mindmap.json"; a.click(); }
         function loadProject(e) { const r = new FileReader(); r.onload = function(evt) { const d = JSON.parse(evt.target.result); drawMap(d.nodes, d.edges); }; r.readAsText(e.target.files[0]); }
         async function exportMap(t) { const el = document.getElementById('mynetwork'); const c = await html2canvas(el); const l = document.createElement('a'); l.download = 'mindmap.png'; l.href = c.toDataURL(); l.click(); }
-        async function exportWord() { const el = document.getElementById('mynetwork'); const bg = el.style.backgroundColor; el.style.backgroundColor = "#fff"; const c = await html2canvas(el); const d = c.toDataURL('image/png'); el.style.backgroundColor = bg; const h = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Export</title></head><body><h1>Mind Map</h1><br><img src="${d}" style="width:100%"><br><p>v4.6</p></body></html>`; const b = new Blob(['\ufeff', h], { type: 'application/msword' }); const l = document.createElement('a'); l.href = URL.createObjectURL(b); l.download = 'mindmap.doc'; l.click(); }
+        async function exportWord() { const el = document.getElementById('mynetwork'); const bg = el.style.backgroundColor; el.style.backgroundColor = "#fff"; const c = await html2canvas(el); const d = c.toDataURL('image/png'); el.style.backgroundColor = bg; const h = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Export</title></head><body><h1>Mind Map</h1><br><img src="${d}" style="width:100%"><br><p>v4.7</p></body></html>`; const b = new Blob(['\ufeff', h], { type: 'application/msword' }); const l = document.createElement('a'); l.href = URL.createObjectURL(b); l.download = 'mindmap.doc'; l.click(); }
     </script>
 </body>
 </html>
