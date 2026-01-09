@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Mind Map (v1.7)</title>
+    <title>AI Mind Map (v1.8)</title>
     <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -11,24 +11,21 @@
     <style>
         /* --- Mac Style Pastel Theme --- */
         :root {
-            --bg-color: #F5F5F7; /* Mac System Background */
-            --panel-bg: rgba(255, 255, 255, 0.85); /* Glass effect */
+            --bg-color: #F5F5F7;
+            --panel-bg: rgba(255, 255, 255, 0.85);
             --text-color: #1D1D1F;
             --border-color: rgba(0, 0, 0, 0.1);
-            
-            /* UI Accent Colors */
-            --accent-color: #007AFF; /* Apple Blue */
-            --danger-color: #FF3B30; /* Apple Red */
-            --success-color: #34C759; /* Apple Green */
-            --warning-color: #FF9500; /* Apple Orange */
-            
+            --accent-color: #007AFF;
+            --danger-color: #FF3B30;
+            --success-color: #34C759;
+            --warning-color: #FF9500;
             --radius: 14px;
             --shadow: 0 4px 20px rgba(0,0,0,0.05);
             
-            /* Node Pastel Colors (Soft & Unified) */
-            --node-root: #FFD1DC;    /* Pastel Pink */
-            --node-keyword: #CDF0EA; /* Pastel Mint */
-            --node-sentence: #D4E6F1; /* Pastel Sky */
+            /* Node Colors */
+            --node-root: #FFD1DC;
+            --node-keyword: #CDF0EA;
+            --node-sentence: #D4E6F1;
         }
 
         [data-theme="dark"] {
@@ -41,14 +38,8 @@
 
         body { 
             font-family: -apple-system, BlinkMacSystemFont, "Pretendard", "SF Pro Text", sans-serif; 
-            padding: 20px; 
-            background-color: var(--bg-color); 
-            color: var(--text-color); 
-            margin: 0; 
-            height: 100vh; 
-            box-sizing: border-box; 
-            transition: background-color 0.3s ease;
-            backdrop-filter: blur(20px);
+            padding: 20px; background-color: var(--bg-color); color: var(--text-color); margin: 0; height: 100vh; 
+            box-sizing: border-box; transition: background-color 0.3s ease; backdrop-filter: blur(20px);
         }
 
         .container { display: flex; gap: 20px; height: 92vh; flex-direction: column; }
@@ -59,38 +50,27 @@
         }
 
         .panel { 
-            background: var(--panel-bg); 
-            padding: 24px; 
-            border-radius: var(--radius); 
-            box-shadow: var(--shadow); 
-            border: 1px solid var(--border-color); 
-            display: flex; flex-direction: column; 
-            position: relative; 
-            backdrop-filter: blur(15px);
-            -webkit-backdrop-filter: blur(15px);
+            background: var(--panel-bg); padding: 24px; border-radius: var(--radius); 
+            box-shadow: var(--shadow); border: 1px solid var(--border-color); 
+            display: flex; flex-direction: column; position: relative; 
+            backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
         }
         
-        h2 { margin: 0 0 20px 0; font-size: 1.1rem; font-weight: 600; display: flex; justify-content: space-between; align-items: center; letter-spacing: -0.02em; }
+        h2 { margin: 0 0 20px 0; font-size: 1.1rem; font-weight: 600; display: flex; justify-content: space-between; align-items: center; }
         
-        /* Input Area Styling */
         textarea { 
-            width: 100%; height: 160px; padding: 16px; 
-            border-radius: 10px; border: 1px solid var(--border-color); 
-            resize: none; font-family: inherit; margin-bottom: 12px; 
-            background: var(--bg-color); color: var(--text-color); 
-            box-sizing: border-box; outline: none; transition: 0.2s;
-            font-size: 0.95rem; line-height: 1.5;
+            width: 100%; height: 160px; padding: 16px; border-radius: 10px; border: 1px solid var(--border-color); 
+            resize: none; font-family: inherit; margin-bottom: 12px; background: var(--bg-color); 
+            color: var(--text-color); box-sizing: border-box; outline: none; transition: 0.2s; font-size: 0.95rem; line-height: 1.5;
         }
         textarea:focus { border-color: var(--accent-color); }
 
         input[type="text"] { 
-            width: 100%; padding: 14px; border-radius: 10px; 
-            border: 1px solid var(--border-color); margin-bottom: 12px; 
-            box-sizing: border-box; background: var(--bg-color); 
+            width: 100%; padding: 14px; border-radius: 10px; border: 1px solid var(--border-color); 
+            margin-bottom: 12px; box-sizing: border-box; background: var(--bg-color); 
             color: var(--text-color); outline: none; font-size: 0.95rem;
         }
 
-        /* Buttons */
         .btn { padding: 12px; border-radius: 10px; border: none; cursor: pointer; font-weight: 600; font-size: 0.9rem; transition: all 0.2s; }
         .btn-primary { background-color: var(--accent-color); color: white; width: 100%; margin-top: 10px; box-shadow: 0 2px 10px rgba(0,122,255,0.2); }
         .btn-primary:hover { transform: translateY(-1px); opacity: 0.9; }
@@ -101,45 +81,36 @@
 
         #mynetwork { width: 100%; height: 100%; outline: none; }
         
-        /* --- Toolbar Controls (Top Right) --- */
         .map-controls { 
             position: absolute; top: 16px; right: 16px; left: 16px; 
             display: flex; justify-content: space-between; pointer-events: none; z-index: 10;
         }
         
         .control-group { 
-            pointer-events: auto; display: flex; gap: 6px; 
-            background: var(--panel-bg); 
-            padding: 6px; border-radius: 12px; 
-            border: 1px solid var(--border-color); 
-            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
-            flex-wrap: wrap; align-items: center;
+            pointer-events: auto; display: flex; gap: 6px; background: var(--panel-bg); 
+            padding: 6px; border-radius: 12px; border: 1px solid var(--border-color); 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05); flex-wrap: wrap; align-items: center;
         }
 
         .control-group button { 
             padding: 8px 12px; font-size: 0.8rem; background: transparent; border: none; 
-            border-radius: 8px; cursor: pointer; color: var(--text-color); transition: 0.2s;
+            border-radius: 8px; cursor: pointer; color: var(--text-color); transition: 0.2s; 
             display: flex; align-items: center; gap: 6px; font-weight: 500;
         }
         .control-group button:hover { background-color: rgba(0,0,0,0.05); }
         
-        /* Specific Button Colors in Toolbar */
         .btn-add { color: var(--accent-color) !important; }
         .btn-unlink { color: var(--text-color) !important; opacity: 0.8; }
         .btn-delete { color: var(--danger-color) !important; }
 
-        /* Status Message Bubble */
         #statusMessage {
             position: absolute; top: 80px; left: 50%; transform: translateX(-50%);
             background: rgba(0, 0, 0, 0.75); color: white; padding: 10px 24px; border-radius: 30px;
             font-size: 0.9rem; font-weight: 500; box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-            pointer-events: none; opacity: 0; transition: opacity 0.3s; z-index: 100;
-            backdrop-filter: blur(10px);
+            pointer-events: none; opacity: 0; transition: opacity 0.3s; z-index: 100; backdrop-filter: blur(10px);
         }
 
         .version-tag { font-size: 0.7rem; color: var(--text-color); opacity: 0.4; margin-top: 15px; text-align: right; }
-        
-        /* Hidden Elements */
         #contextToolbar, #edgeToolbar { display: none; }
     </style>
 </head>
@@ -171,7 +142,7 @@
                     * <b>Click Node:</b> Open Menu<br>
                     * <b>Auto-Save:</b> Enabled
                 </p>
-                <div class="version-tag">Version 1.7</div>
+                <div class="version-tag">Version 1.8</div>
             </div>
         </div>
 
@@ -185,7 +156,7 @@
                         <button onclick="editNodeText()">✏️ Edit</button>
                         <button onclick="startMove()">🚀 Move</button>
                         <button onclick="startConnect()">🔗 Link</button>
-                        <button class="btn-unlink" onclick="unlinkNode()" title="Disconnect from parent">🔗💔 Unlink</button>
+                        <button class="btn-unlink" onclick="unlinkNode()">🔗💔 Unlink</button>
                         <button class="btn-delete" onclick="deleteSelected()">🗑 Delete</button>
                     </div>
                     <div id="edgeToolbar" class="control-group" style="border-color: var(--warning-color);">
@@ -200,7 +171,7 @@
                     <button onclick="setLayout('UD')">🌳 Tree</button>
                     <button onclick="setLayout('LR')">🧱 Block</button>
                     <button onclick="setLayout('Free')">✨ Free</button>
-                    <span style="width:1px; height:15px; background:var(--border-color); margin:0 2px;"></span>
+                    <button onclick="setLayout('Board')">📋 Board</button> <span style="width:1px; height:15px; background:var(--border-color); margin:0 2px;"></span>
                     <button onclick="exportMap('png')">📷 IMG</button>
                     <button onclick="exportWord()">📝 Word</button>
                 </div>
@@ -213,10 +184,8 @@
     <script>
         let network = null;
         let isDarkMode = false;
-        
         let currentAction = null;
         let actionSourceId = null; 
-        
         let historyStack = [];
         let initialState = null;
         const MAX_HISTORY = 50; 
@@ -232,7 +201,7 @@
             });
         };
 
-        // --- 1. History ---
+        // --- History ---
         function saveHistory() {
             if(!network) return;
             const s = { nodes: network.body.data.nodes.get(), edges: network.body.data.edges.get() };
@@ -255,7 +224,7 @@
             }
         }
 
-        // --- 2. Generator ---
+        // --- Generator ---
         function processData() {
             const text = document.getElementById('inputText').value;
             const keywordsRaw = document.getElementById('keywords').value;
@@ -277,20 +246,21 @@
             const colKw = style.getPropertyValue('--node-keyword').trim();
             const colSent = style.getPropertyValue('--node-sentence').trim();
 
-            let nodes = [{id: 1, label: 'Main Topic', color: colRoot, shape:'box', font:{size:24, face:'Pretendard'}}];
+            // ID 1 is reserved for Root
+            let nodes = [{id: 1, label: 'Main Topic', color: colRoot, shape:'box', font:{size:24, face:'Pretendard'}, level:0}];
             let edges = [];
             let nodeId = 2;
             const sentences = text.match(/[^.?!]+[.?!]+["']?|[^.?!]+$/g) || [text];
 
             keywordList.forEach(kw => {
                 const kwId = nodeId++;
-                nodes.push({id: kwId, label: kw, color: colKw, shape:'ellipse', font:{size:18, face:'Pretendard'}});
+                nodes.push({id: kwId, label: kw, color: colKw, shape:'box', font:{size:18, face:'Pretendard', bold:true}, level:1});
                 edges.push({from: 1, to: kwId});
                 let count = 0;
                 sentences.forEach(s => {
                     if(s.includes(kw) && count < 3) {
                         if(s.trim().length > 5) {
-                            nodes.push({id: nodeId, label: s.trim().substring(0,25)+"...", title: s.trim(), color: colSent, shape:'box', widthConstraint:{maximum:220}, font:{face:'Pretendard'}});
+                            nodes.push({id: nodeId, label: s.trim().substring(0,30)+"...", title: s.trim(), color: colSent, shape:'box', widthConstraint:{maximum:220}, font:{face:'Pretendard'}, level:2});
                             edges.push({from: kwId, to: nodeId});
                             nodeId++;
                             count++;
@@ -346,9 +316,8 @@
             network.on("dragEnd", () => saveSession());
         }
 
-        // --- 3. Actions ---
+        // --- Actions ---
         function getSelectedNode() { const ids = network.getSelectedNodes(); return ids.length > 0 ? ids[0] : null; }
-
         function addChildNode() {
             const pid = getSelectedNode(); if(!pid) return;
             const l = prompt("Child Node Name:");
@@ -361,14 +330,12 @@
                 saveSession();
             }
         }
-
         function editNodeText() {
             const id = getSelectedNode(); if(!id) return;
             const n = network.body.data.nodes.get(id);
             const l = prompt("Edit Text:", n.label);
             if(l !== null) { saveHistory(); network.body.data.nodes.update({id: id, label: l}); saveSession(); }
         }
-
         function deleteSelected() {
             const id = getSelectedNode(); if(!id) return;
             saveHistory();
@@ -376,22 +343,17 @@
             document.getElementById('contextToolbar').style.display = 'none';
             saveSession();
         }
-
         function unlinkNode() {
             const id = getSelectedNode(); if(!id) return;
             const edges = network.body.data.edges.get();
             const incoming = edges.filter(e => e.to === id);
-            
             if(incoming.length > 0) {
                 saveHistory();
                 network.body.data.edges.remove(incoming.map(e => e.id));
                 showStatus("Node unlinked");
                 saveSession();
-            } else {
-                showStatus("No parent link found");
-            }
+            } else { showStatus("No parent link found"); }
         }
-
         function deleteSelectedEdge() {
             const edges = network.getSelectedEdges(); if(edges.length === 0) return;
             saveHistory();
@@ -399,15 +361,13 @@
             document.getElementById('edgeToolbar').style.display = 'none';
             saveSession();
         }
-
         function startMove() {
             const id = getSelectedNode(); if(!id) return;
             currentAction = 'move'; actionSourceId = id;
-            showStatus("👉 Click new PARENT node");
+            showStatus("👉 Click new PARENT (Column)");
             document.body.style.cursor = "alias";
             network.body.data.nodes.update({id: id, borderWidth: 2, color: {border:'#FF9500'}});
         }
-
         function finalizeMove(src, tgt) {
             saveHistory();
             const edges = network.body.data.edges;
@@ -415,8 +375,10 @@
             connected.forEach(eid => { const e = edges.get(eid); if(e.to === src) edges.remove(eid); });
             edges.add({from: tgt, to: src});
             finishAction(src); showStatus("Moved!");
+            
+            // Auto-refresh layout if in board mode (optional, but good for UX)
+            // setLayout('Board'); // Uncomment if you want auto-snap after move
         }
-
         function startConnect() {
             const id = getSelectedNode(); if(!id) return;
             currentAction = 'connect'; actionSourceId = id;
@@ -424,13 +386,11 @@
             document.body.style.cursor = "cell";
             network.body.data.nodes.update({id: id, borderWidth: 2, color: {border:'#34C759'}});
         }
-
         function finalizeConnect(src, tgt) {
             saveHistory();
             network.body.data.edges.add({from: src, to: tgt});
             finishAction(src); showStatus("Linked!");
         }
-
         function finishAction(sid) {
             network.body.data.nodes.update({id: sid, borderWidth: 0, color: null});
             network.body.data.nodes.update({id: sid, borderWidth: 0});
@@ -438,43 +398,100 @@
             document.body.style.cursor = "default";
             saveSession();
         }
-
         function cancelAction() {
             if (actionSourceId) network.body.data.nodes.update({id: actionSourceId, borderWidth: 0});
             currentAction = null; actionSourceId = null;
             document.body.style.cursor = "default"; showStatus("");
         }
 
-        // --- 4. Utilities ---
-        // 🔥 Layout Function (Updated for v1.7)
+        // --- Utilities ---
         function setLayout(t) {
             saveHistory();
             if(!network) return;
             
-            let o = { physics: false }; // 기본적으로 물리는 끕니다.
+            if (t === 'Board') {
+                layoutBoard(); // Custom Board Layout Function
+                return;
+            }
 
+            let o = { physics: false };
             if(t==='UD') {
                 o.layout = { hierarchical: { enabled: true, direction: "UD", levelSeparation: 150 } };
             } else if(t==='LR') {
                 o.layout = { hierarchical: { enabled: true, direction: "LR", levelSeparation: 200 } };
             } else {
-                // Free Mode: Enable physics to spread, then freeze
                 o.layout = { hierarchical: { enabled: false } };
-                o.physics = { 
-                    enabled: true, 
-                    solver: 'forceAtlas2Based',
-                    stabilization: { iterations: 200 } 
-                };
-                
-                // 🔥 Auto-freeze logic
-                network.once("stabilized", function() {
-                    network.setOptions({ physics: false });
-                });
+                o.physics = { enabled: true, solver: 'forceAtlas2Based', stabilization: { iterations: 200 } };
+                network.once("stabilized", function() { network.setOptions({ physics: false }); });
             }
             network.setOptions(o);
-            
-            // Free 모드일 때는 fit()만 하고, stabilization은 setOptions가 알아서 수행함
             if (t !== 'Free') network.fit();
+        }
+
+        // 🔥 Custom Notion-like Board Layout
+        function layoutBoard() {
+            const nodes = network.body.data.nodes;
+            const edges = network.body.data.edges;
+            
+            // 1. Identify Root (ID 1)
+            // 2. Identify Columns (Level 1 nodes connected to Root)
+            const rootId = 1;
+            const allNodes = nodes.get();
+            const allEdges = edges.get();
+
+            // Find columns (children of root)
+            let columns = allNodes.filter(n => {
+                return allEdges.some(e => e.from === rootId && e.to === n.id);
+            });
+            
+            // Sort columns by existing X position to keep order, or by ID
+            columns.sort((a,b) => (a.x || 0) - (b.x || 0));
+
+            // Config
+            const colWidth = 300;
+            const startX = -((columns.length * colWidth) / 2) + (colWidth/2);
+            const startY = -200;
+            const cardGap = 100;
+
+            let updates = [];
+
+            // Position Root (Center Top)
+            updates.push({id: rootId, x: 0, y: startY - 150});
+
+            columns.forEach((col, index) => {
+                const cx = startX + (index * colWidth);
+                const cy = startY;
+                
+                // Position Column Header
+                updates.push({id: col.id, x: cx, y: cy});
+
+                // Find Cards (children of this column)
+                let cards = allNodes.filter(n => {
+                    return allEdges.some(e => e.from === col.id && e.to === n.id);
+                });
+
+                // Sort cards by Y to keep relative order
+                cards.sort((a,b) => (a.y || 0) - (b.y || 0));
+
+                cards.forEach((card, cIndex) => {
+                    updates.push({
+                        id: card.id,
+                        x: cx,
+                        y: cy + ((cIndex + 1) * cardGap)
+                    });
+                });
+            });
+
+            // Apply positions
+            nodes.update(updates);
+            
+            // Disable physics & hierarchy to keep grid
+            network.setOptions({
+                physics: false,
+                layout: { hierarchical: { enabled: false } }
+            });
+            network.fit();
+            showStatus("Board Layout Applied");
         }
 
         function toggleTheme() {
@@ -482,28 +499,24 @@
             document.documentElement.setAttribute('data-theme', isDarkMode ? 'dark' : 'light');
             localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
         }
-
         function showStatus(m) {
             const el = document.getElementById('statusMessage');
             el.innerText = m; el.style.opacity = m ? 1 : 0;
             if(m) setTimeout(() => el.style.opacity = 0, 3000);
         }
-
         function saveSession() {
             if(!network) return;
             const d = { text: document.getElementById('inputText').value, nodes: network.body.data.nodes.get(), edges: network.body.data.edges.get(), initialState: initialState };
-            localStorage.setItem('mindMapSessionV1_7', JSON.stringify(d));
+            localStorage.setItem('mindMapSessionV1_8', JSON.stringify(d));
         }
-
         function restoreSession() {
-            const s = localStorage.getItem('mindMapSessionV1_7');
+            const s = localStorage.getItem('mindMapSessionV1_8');
             if(s) { try { const d = JSON.parse(s); document.getElementById('inputText').value = d.text||""; initialState = d.initialState; drawMap(d.nodes, d.edges); } catch(e){} }
         }
-
         function saveProject() { if(!network) return; const d = { nodes: network.body.data.nodes.get(), edges: network.body.data.edges.get() }; const b = new Blob([JSON.stringify(d)], {type:"text/json"}); const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = "mindmap.json"; a.click(); }
         function loadProject(e) { const r = new FileReader(); r.onload = function(evt) { const d = JSON.parse(evt.target.result); drawMap(d.nodes, d.edges); }; r.readAsText(e.target.files[0]); }
         async function exportMap(t) { const el = document.getElementById('mynetwork'); const c = await html2canvas(el); const l = document.createElement('a'); l.download = 'mindmap.png'; l.href = c.toDataURL(); l.click(); }
-        async function exportWord() { const el = document.getElementById('mynetwork'); const bg = el.style.backgroundColor; el.style.backgroundColor = "#fff"; const c = await html2canvas(el); const d = c.toDataURL('image/png'); el.style.backgroundColor = bg; const h = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Export</title></head><body><h1>Mind Map</h1><br><img src="${d}" style="width:100%"><br><p>v1.7</p></body></html>`; const b = new Blob(['\ufeff', h], { type: 'application/msword' }); const l = document.createElement('a'); l.href = URL.createObjectURL(b); l.download = 'mindmap.doc'; l.click(); }
+        async function exportWord() { const el = document.getElementById('mynetwork'); const bg = el.style.backgroundColor; el.style.backgroundColor = "#fff"; const c = await html2canvas(el); const d = c.toDataURL('image/png'); el.style.backgroundColor = bg; const h = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Export</title></head><body><h1>Mind Map</h1><br><img src="${d}" style="width:100%"><br><p>v1.8</p></body></html>`; const b = new Blob(['\ufeff', h], { type: 'application/msword' }); const l = document.createElement('a'); l.href = URL.createObjectURL(b); l.download = 'mindmap.doc'; l.click(); }
     </script>
 </body>
 </html>
