@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Mind Map (v2.9)</title>
+    <title>AI Mind Map (v3.0)</title>
     <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -22,7 +22,7 @@
             --radius: 12px;
             --shadow: 0 4px 24px rgba(0,0,0,0.08);
             
-            /* Node Colors (Always Pastel) */
+            /* Node Colors */
             --node-root: #FFE4E1;    
             --node-keyword: #E0F7FA; 
             --node-sentence: #FFFFFF; 
@@ -143,9 +143,9 @@
             <div style="margin-top:auto;">
                 <p style="font-size:0.75rem; opacity:0.6; line-height:1.5; margin-bottom:0;">
                     * <b>Multi-Select:</b> Ctrl+Click / Drag<br>
-                    * <b>Board:</b> Move Up/Down freely.
+                    * <b>Board:</b> Fixed drop on empty columns.
                 </p>
-                <div class="version-tag">Version 2.9</div>
+                <div class="version-tag">Version 3.0</div>
             </div>
         </div>
 
@@ -199,7 +199,7 @@
         const BOARD_CONFIG = {
             colWidth: 230,   
             cardGap: 85,    
-            headerY: -200
+            headerY: -250 // Headers are at Y = -250
         };
 
         window.onload = function() {
@@ -347,7 +347,7 @@
 
             network.on("doubleClick", (params) => { if(params.nodes.length > 0) editNodeText(); });
             
-            // 🔥 V2.9 FIXED: Upward Promotion Logic 🔥
+            // 🔥 V3.0 FIXED DRAG LOGIC (Strict Promotion, Easy Demotion) 🔥
             network.on("dragEnd", function (params) {
                 if (!isBoardMode || params.nodes.length === 0) {
                     saveSession();
@@ -363,18 +363,18 @@
                 const dragHeadId = selectedIds[0];
                 const headPos = network.getPositions([dragHeadId])[dragHeadId];
                 
-                // Identify columns
                 const allNodes = nodesDS.get();
                 const allEdges = edgesDS.get();
+                // Identify columns
                 let columns = allNodes.filter(n => {
                     return n.level === 1 || allEdges.some(e => e.from === rootId && e.to === n.id);
                 });
                 
                 columns.sort((a,b) => (a.x || 0) - (b.x || 0));
 
+                // Find nearest column by X
                 let targetCol = null;
                 let minDist = Infinity;
-                
                 columns.forEach(col => {
                     const dist = Math.abs(col.x - headPos.x);
                     if(dist < minDist) { minDist = dist; targetCol = col; }
@@ -384,14 +384,15 @@
                     const pos = network.getPositions([nodeId])[nodeId];
                     nodesDS.update({ id: nodeId, x: pos.x, y: pos.y });
 
-                    // ** IMPROVED LOGIC **
-                    // 1. If dragged above the "Card Area" (closer to headers), promote to Header
-                    // Threshold: HeaderY (-200) + slight buffer (e.g. -100)
-                    if (pos.y < BOARD_CONFIG.headerY + 100) {
+                    // ** IMPROVED LOGIC V3.0 **
+                    // 1. Promote to Header ONLY if dragged significantly ABOVE existing headers
+                    // HeaderY is -250. Must drag to -300 or higher (up) to promote.
+                    // This prevents accidental promotion when dropping on an empty header.
+                    if (pos.y < BOARD_CONFIG.headerY - 50) {
                         nodesDS.update({id: nodeId, level: 1});
-                        reParentNode(nodeId, rootId, edgesDS); // Attach to Root
+                        reParentNode(nodeId, rootId, edgesDS); 
                     }
-                    // 2. If dragged down, demote to Card under nearest column
+                    // 2. Otherwise, if near a column, become its child (even if column is empty)
                     else if (targetCol && targetCol.id !== nodeId) {
                         nodesDS.update({id: nodeId, level: 2}); 
                         reParentNode(nodeId, targetCol.id, edgesDS);
@@ -403,14 +404,11 @@
             });
         }
 
-        // Helper: Cleanly switch parents
         function reParentNode(childId, newParentId, edgesDS) {
             const allEdges = edgesDS.get();
             const connectedEdges = network.getConnectedEdges(childId);
-            // Find incoming edge (parent -> child)
             const parentEdge = allEdges.find(e => e.to === childId && connectedEdges.includes(e.id));
             
-            // Avoid self-loop or root-loop issues
             if (childId === 1 || childId === newParentId) return;
 
             if (parentEdge) {
@@ -601,16 +599,16 @@
         function saveSession() {
             if(!network) return;
             const d = { text: document.getElementById('inputText').value, nodes: network.body.data.nodes.get(), edges: network.body.data.edges.get(), initialState: initialState };
-            localStorage.setItem('mindMapSessionV2_9', JSON.stringify(d));
+            localStorage.setItem('mindMapSessionV3_0', JSON.stringify(d));
         }
         function restoreSession() {
-            const s = localStorage.getItem('mindMapSessionV2_9');
+            const s = localStorage.getItem('mindMapSessionV3_0');
             if(s) { try { const d = JSON.parse(s); document.getElementById('inputText').value = d.text||""; initialState = d.initialState; drawMap(d.nodes, d.edges); } catch(e){} }
         }
         function saveProject() { if(!network) return; const d = { nodes: network.body.data.nodes.get(), edges: network.body.data.edges.get() }; const b = new Blob([JSON.stringify(d)], {type:"text/json"}); const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = "mindmap.json"; a.click(); }
         function loadProject(e) { const r = new FileReader(); r.onload = function(evt) { const d = JSON.parse(evt.target.result); drawMap(d.nodes, d.edges); }; r.readAsText(e.target.files[0]); }
         async function exportMap(t) { const el = document.getElementById('mynetwork'); const c = await html2canvas(el); const l = document.createElement('a'); l.download = 'mindmap.png'; l.href = c.toDataURL(); l.click(); }
-        async function exportWord() { const el = document.getElementById('mynetwork'); const bg = el.style.backgroundColor; el.style.backgroundColor = "#fff"; const c = await html2canvas(el); const d = c.toDataURL('image/png'); el.style.backgroundColor = bg; const h = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Export</title></head><body><h1>Mind Map</h1><br><img src="${d}" style="width:100%"><br><p>v2.9</p></body></html>`; const b = new Blob(['\ufeff', h], { type: 'application/msword' }); const l = document.createElement('a'); l.href = URL.createObjectURL(b); l.download = 'mindmap.doc'; l.click(); }
+        async function exportWord() { const el = document.getElementById('mynetwork'); const bg = el.style.backgroundColor; el.style.backgroundColor = "#fff"; const c = await html2canvas(el); const d = c.toDataURL('image/png'); el.style.backgroundColor = bg; const h = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Export</title></head><body><h1>Mind Map</h1><br><img src="${d}" style="width:100%"><br><p>v3.0</p></body></html>`; const b = new Blob(['\ufeff', h], { type: 'application/msword' }); const l = document.createElement('a'); l.href = URL.createObjectURL(b); l.download = 'mindmap.doc'; l.click(); }
     </script>
 </body>
 </html>
