@@ -3,38 +3,38 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Mind Map Generator</title>
+    <title>AI Mind Map Generator (Pro Edit)</title>
     <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     
     <style>
-        /* Mac Style Root Variables & Pastel Colors */
+        /* Mac 스타일 & 파스텔 톤 설정 */
         :root {
-            --bg-color: #F2F2F7; /* Mac System Gray 6 */
-            --panel-bg: rgba(255, 255, 255, 0.8); /* Translucent white */
+            --bg-color: #F2F2F7;
+            --panel-bg: rgba(255, 255, 255, 0.85);
             --text-color: #1C1C1E;
             --border-color: rgba(60, 60, 67, 0.18);
-            --accent-color: #007AFF; /* Mac System Blue */
-            --danger-color: #FF3B30; /* Mac System Red */
+            --accent-color: #007AFF;
+            --danger-color: #FF3B30;
             --radius: 16px;
-            --shadow: 0 4px 20px rgba(0,0,0,0.08);
-            --font-stack: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+            --shadow: 0 8px 30px rgba(0,0,0,0.12);
+            --font-stack: -apple-system, BlinkMacSystemFont, "Pretendard", "Apple SD Gothic Neo", sans-serif;
 
-            /* Pastel Node Colors */
-            --node-root: #FFD1DC; /* Pastel Pink */
-            --node-keyword: #C1E1C1; /* Pastel MintGreen */
-            --node-sentence: #C4DEF6; /* Pastel SkyBlue */
+            /* 노드 색상 (파스텔) */
+            --node-root: #FFD1DC; /* 핑크 */
+            --node-keyword: #C1E1C1; /* 민트 */
+            --node-sentence: #C4DEF6; /* 하늘 */
+            --node-active: #FF6B6B; /* 이동 중일 때 강조색 */
         }
 
-        /* Dark Mode overrides */
+        /* 다크모드 */
         [data-theme="dark"] {
             --bg-color: #1C1C1E;
-            --panel-bg: rgba(44, 44, 46, 0.8);
+            --panel-bg: rgba(44, 44, 46, 0.85);
             --text-color: #FFFFFF;
             --border-color: rgba(84, 84, 88, 0.4);
             --accent-color: #0A84FF;
-             --shadow: 0 4px 20px rgba(0,0,0,0.3);
         }
 
         body {
@@ -42,19 +42,18 @@
             padding: 20px;
             background-color: var(--bg-color);
             color: var(--text-color);
-            transition: background-color 0.3s ease;
+            transition: 0.3s;
             margin: 0;
+            height: 100vh;
             box-sizing: border-box;
-            /* Backdrop filter for Mac-like glass effect */
             backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
         }
 
         .container { display: flex; gap: 20px; height: 92vh; flex-direction: column; }
         
         @media (min-width: 900px) {
             .container { flex-direction: row; }
-            .input-panel { width: 350px; flex-shrink: 0;}
+            .input-panel { width: 350px; flex-shrink: 0; }
             .map-panel { flex-grow: 1; }
         }
 
@@ -64,192 +63,184 @@
             border-radius: var(--radius);
             box-shadow: var(--shadow);
             border: 1px solid var(--border-color);
-            display: flex;
-            flex-direction: column;
-            backdrop-filter: blur(30px);
-            -webkit-backdrop-filter: blur(30px);
+            display: flex; flex-direction: column;
+            position: relative;
         }
         
-        .header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-        h2 { margin: 0; font-weight: 600; font-size: 1.4rem;}
-        .toggle-switch { cursor: pointer; background: none; border: none; font-size: 1.5rem;}
-
-        label { font-weight: 600; font-size: 0.9rem; margin-bottom: 8px; display: block; margin-top: 15px;}
-        textarea { width: 100%; height: 180px; padding: 12px; background: var(--bg-color); color: var(--text-color); border: 1px solid var(--border-color); border-radius: 10px; resize: none; box-sizing: border-box; font-family: inherit; font-size: 0.95rem;}
-        input[type="text"] { width: 100%; padding: 12px; background: var(--bg-color); color: var(--text-color); border: 1px solid var(--border-color); border-radius: 10px; box-sizing: border-box; font-family: inherit;font-size: 0.95rem;}
+        /* 입력창 스타일 */
+        h2 { margin: 0 0 15px 0; font-size: 1.2rem; display: flex; justify-content: space-between; align-items: center;}
+        textarea { width: 100%; height: 150px; padding: 12px; border-radius: 10px; border: 1px solid var(--border-color); resize: none; font-family: inherit; margin-bottom: 10px; background: var(--bg-color); color: var(--text-color);}
+        input[type="text"] { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid var(--border-color); margin-bottom: 10px; box-sizing: border-box; background: var(--bg-color); color: var(--text-color);}
         
-        /* Buttons */
-        .btn { padding: 10px 16px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.9rem; transition: all 0.2s; font-family: inherit;}
-        .btn-primary { background-color: var(--accent-color); color: white; width: 100%; margin-top: 20px; padding: 14px; font-size: 1rem;}
-        .btn-primary:hover { opacity: 0.9; transform: translateY(-1px);}
-        .btn-secondary { background-color: var(--bg-color); color: var(--text-color); border: 1px solid var(--border-color);}
-        .btn-secondary:hover { background-color: var(--border-color);}
+        .btn { padding: 10px; border-radius: 8px; border: none; cursor: pointer; font-weight: 600; font-size: 0.9rem; transition: 0.2s; font-family: inherit; }
+        .btn-primary { background-color: var(--accent-color); color: white; width: 100%; margin-top: 10px; }
+        .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+        .btn-secondary { background-color: rgba(0,0,0,0.05); color: var(--text-color); }
+        .btn-group { display: flex; gap: 5px; margin-bottom: 15px; }
 
-        /* Toolbar areas */
-        .project-toolbar { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;}
-        .project-toolbar .btn { flex: 1; white-space: nowrap;}
-        
-        .map-panel { position: relative; padding: 0; overflow: hidden;}
-        #mynetwork { width: 100%; height: 100%; }
-        
-        .map-controls { position: absolute; top: 15px; right: 15px; z-index: 10; display: flex; gap: 8px; background: var(--panel-bg); padding: 8px; border-radius: 12px; box-shadow: var(--shadow); border: 1px solid var(--border-color); flex-wrap: wrap; justify-content: flex-end;}
-        .map-controls .btn { padding: 6px 12px; font-size: 0.8rem;}
-        .export-group { display: flex; gap: 5px; border-left: 2px solid var(--border-color); padding-left: 8px; margin-left: 5px;}
+        /* 마인드맵 영역 */
+        #mynetwork { width: 100%; height: 100%; cursor: grab; }
+        #mynetwork:active { cursor: grabbing; }
 
-        .helper-text { font-size: 0.8rem; color: var(--text-color); opacity: 0.7; margin-top: 20px; line-height: 1.4;}
+        .map-controls { position: absolute; top: 15px; right: 15px; display: flex; gap: 8px; z-index: 10; }
+        .map-controls button { padding: 6px 12px; font-size: 0.8rem; background: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; color: var(--text-color); box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+
+        /* 🔥 컨텍스트 메뉴 (더블클릭 메뉴) 스타일 */
+        #contextMenu {
+            display: none;
+            position: absolute;
+            z-index: 1000;
+            width: 160px;
+            background-color: var(--panel-bg);
+            border-radius: 12px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+            border: 1px solid var(--border-color);
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+        #contextMenu ul { list-style: none; padding: 0; margin: 0; }
+        #contextMenu li {
+            padding: 12px 16px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-color);
+            display: flex; align-items: center; gap: 8px;
+        }
+        #contextMenu li:last-child { border-bottom: none; }
+        #contextMenu li:hover { background-color: var(--accent-color); color: white; }
+        
+        /* 이동 모드 안내 메시지 */
+        #moveModeMsg {
+            display: none;
+            position: absolute;
+            top: 60px; left: 50%; transform: translateX(-50%);
+            background: var(--accent-color); color: white;
+            padding: 10px 20px; border-radius: 20px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            z-index: 100; font-weight: bold; font-size: 0.9rem;
+            animation: fadeIn 0.3s;
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: translate(-50%, -10px); } to { opacity: 1; transform: translate(-50%, 0); } }
+
     </style>
 </head>
 <body>
 
     <div class="container">
         <div class="input-panel panel">
-            <div class="header-row">
-                <h2>Settings</h2>
-                <button class="toggle-switch" onclick="toggleTheme()" title="Toggle Dark Mode">🌓</button>
-            </div>
+            <h2>
+                Settings
+                <button onclick="toggleTheme()" style="background:none; border:none; cursor:pointer; font-size:1.2rem;">🌓</button>
+            </h2>
             
-            <div class="project-toolbar">
-                <button class="btn btn-secondary" onclick="saveProject()">💾 Save Project</button>
-                <button class="btn btn-secondary" onclick="document.getElementById('fileLoader').click()">📂 Load Project</button>
-                <input type="file" id="fileLoader" style="display: none;" accept=".json" onchange="loadProject(event)">
+            <div class="btn-group">
+                <button class="btn btn-secondary" style="flex:1" onclick="saveProject()">💾 Save</button>
+                <button class="btn btn-secondary" style="flex:1" onclick="document.getElementById('fileLoader').click()">📂 Load</button>
+                <input type="file" id="fileLoader" style="display:none" onchange="loadProject(event)" accept=".json">
             </div>
 
-            <label for="inputText">Source Text:</label>
-            <textarea id="inputText" placeholder="Paste your text here (sermons, articles, notes)..."></textarea>
-            
-            <label for="keywords">Keywords (Optional):</label>
-            <input type="text" id="keywords" placeholder="e.g., Love, Grace (Leave empty for auto-analysis)">
+            <textarea id="inputText" placeholder="Paste your text here..."></textarea>
+            <input type="text" id="keywords" placeholder="Keywords (Optional)">
             
             <button class="btn btn-primary" onclick="processData()">✨ Generate Mind Map</button>
-            
-            <p class="helper-text">
-                * <b>Auto-Save:</b> Your work is automatically saved in this browser.<br>
-                * <b>Editing:</b> Click 'Edit Mode' on the map to re-link nodes. Click a node to edit text.
-            </p>
+
+            <div style="margin-top: auto; font-size: 0.8rem; opacity: 0.7; line-height: 1.5;">
+                * <b>Tip:</b> Double-click a node to Edit/Move.<br>
+                * <b>Auto-Save:</b> Enabled.
+            </div>
         </div>
 
         <div class="map-panel panel">
             <div class="map-controls">
-                <button class="btn btn-secondary" onclick="setLayout('UD')" title="Tree Layout (Up-Down)">🌳 Tree</button>
-                <button class="btn btn-secondary" onclick="setLayout('LR')" title="Block Layout (Left-Right)">🧱 Block</button>
-                <button class="btn btn-secondary" onclick="setLayout('Free')" title="Free Layout">✨ Free</button>
-                
-                <button class="btn btn-secondary" id="editToggleBtn" onclick="toggleEditMode()" title="Enable to add/delete connections">✏️ Edit Mode: OFF</button>
-
-                <div class="export-group">
-                    <button class="btn btn-secondary" onclick="exportMap('png')">📷 PNG</button>
-                    <button class="btn btn-secondary" onclick="exportMap('jpg')">📷 JPG</button>
-                    <button class="btn btn-secondary" onclick="exportMap('pdf')">📄 PDF</button>
-                 </div>
+                <button onclick="setLayout('UD')">Tree</button>
+                <button onclick="setLayout('LR')">Block</button>
+                <button onclick="setLayout('Free')">Free</button>
+                <span style="width:1px; background:#ccc; margin:0 5px;"></span>
+                <button onclick="exportMap('png')">IMG</button>
+                <button onclick="exportMap('pdf')">PDF</button>
             </div>
+
+            <div id="moveModeMsg">🚀 Select a new parent node to attach to!</div>
+
             <div id="mynetwork"></div>
+
+            <div id="contextMenu">
+                <ul>
+                    <li onclick="menuAction('add')">➕ Add Child</li>
+                    <li onclick="menuAction('edit')">✏️ Edit Text</li>
+                    <li onclick="menuAction('move')">🚀 Move (Re-attach)</li>
+                    <li onclick="menuAction('cut')">✂️ Cut</li>
+                    <li onclick="menuAction('copy')">📄 Copy</li>
+                    <li id="pasteOption" style="display:none;" onclick="menuAction('paste')">📋 Paste</li>
+                    <li onclick="menuAction('delete')" style="color:var(--danger-color)">🗑 Delete</li>
+                </ul>
+            </div>
         </div>
     </div>
 
     <script>
         let network = null;
         let isDarkMode = false;
-        let isEditMode = false;
-        const rootCSS = document.documentElement.style;
+        
+        // 상태 변수들
+        let selectedNodeId = null; // 현재 메뉴를 띄운 노드
+        let moveSourceId = null;   // 이동시키려고 선택한 노드
+        let clipboard = null;      // 복사한 노드 데이터 저장
 
-        // Initialize on load
+        // 초기화
         window.onload = function() {
-            // Restore theme preference
-            if (localStorage.getItem('theme') === 'dark') {
-                toggleTheme();
-            }
-            // Attempt to restore previous session data
+            if(localStorage.getItem('theme') === 'dark') toggleTheme();
             restoreSession();
-        };
-
-        // --- 1. Theme & UI Functions ---
-        function toggleTheme() {
-            isDarkMode = !isDarkMode;
-            document.documentElement.setAttribute('data-theme', isDarkMode ? 'dark' : 'light');
-            localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
-            if(network) network.redraw();
-        }
-
-        function toggleEditMode() {
-            isEditMode = !isEditMode;
-            const btn = document.getElementById('editToggleBtn');
-            if(!network) return;
-
-            if (isEditMode) {
-                btn.innerText = "✏️ Edit Mode: ON";
-                btn.style.backgroundColor = "var(--accent-color)";
-                btn.style.color = "white";
-                // Enable edge addition and deletion for re-linking blocks
-                network.setOptions({ manipulation: { enabled: true, addEdge: true, deleteEdge: true, deleteNode: true }});
-                network.addEdgeMode(); // Start in "add edge" mode immediately for convenience
-            } else {
-                btn.innerText = "✏️ Edit Mode: OFF";
-                btn.style.backgroundColor = "";
-                btn.style.color = "";
-                // Disable structural editing, keep node editing
-                network.setOptions({ manipulation: { enabled: true, addEdge: false, deleteEdge: false, deleteNode: true }, interactions: { hover: true } });
-                network.disableEditMode();
-            }
-        }
-
-        // --- 2. Data Processing (Auto-Analysis) ---
-        function extractKeywords(text) {
-            // Korean Stopwords
-            const stopWords = ['은', '는', '이', '가', '을', '를', '의', '에', '와', '과', '도', '로', '으로', '서', '에서', '하다', '있다', '없다', '것', '수', '그', '이', '저', '들', '한', '합니다', '했습니다', '입니다', '그리고', '그러나', '그런데', '그래서'];
-            const words = text.replace(/[.,?!""''\(\)\r\n\[\]]/g, " ").split(/\s+/);
-            const wordCounts = {};
-
-            words.forEach(word => {
-                if (word.length >= 2) {
-                    let cleanWord = word;
-                    stopWords.forEach(sw => { if (cleanWord.endsWith(sw)) cleanWord = cleanWord.slice(0, -sw.length); });
-                    if (cleanWord.length >= 2 && !stopWords.includes(cleanWord)) {
-                        wordCounts[cleanWord] = (wordCounts[cleanWord] || 0) + 1;
-                    }
+            
+            // 바탕화면 클릭 시 메뉴 닫기
+            document.addEventListener('click', function(e) {
+                if (!e.target.closest('#contextMenu')) {
+                    closeMenu();
                 }
             });
-            return Object.entries(wordCounts).sort((a, b) => b[1] - a[1]).slice(0, 6).map(entry => entry[0]);
-        }
+        };
 
+        // --- 1. 데이터 처리 및 그리기 ---
         function processData() {
             const text = document.getElementById('inputText').value;
-            let keywordsRaw = document.getElementById('keywords').value;
+            const keywordsRaw = document.getElementById('keywords').value;
 
-            if(!text) { alert("Please input some text first."); return; }
+            if(!text) { alert("Please input text."); return; }
 
+            // 간단 키워드 추출 로직
             let keywordList = [];
             if (!keywordsRaw.trim()) {
-                keywordList = extractKeywords(text);
-                if (keywordList.length === 0) { alert("Could not auto-detect keywords. Please enter them manually."); return; }
+                const stopWords = ['은','는','이','가','을','를','의','에','로','합니다','입니다'];
+                const words = text.replace(/[.,?!]/g, " ").split(/\s+/);
+                const counts = {};
+                words.forEach(w => {
+                    if(w.length>=2 && !stopWords.some(sw=>w.endsWith(sw))) counts[w]=(counts[w]||0)+1;
+                });
+                keywordList = Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,5).map(e=>e[0]);
             } else {
-                keywordList = keywordsRaw.split(',').map(k => k.trim()).filter(k => k.length > 0);
+                keywordList = keywordsRaw.split(',').map(k=>k.trim()).filter(k=>k);
             }
 
-            // Get pastel colors from CSS variables
+            // 노드 생성
             const style = getComputedStyle(document.documentElement);
-            const colRoot = style.getPropertyValue('--node-root').trim();
-            const colKw = style.getPropertyValue('--node-keyword').trim();
-            const colSent = style.getPropertyValue('--node-sentence').trim();
-
-            let nodes = [{id: 1, label: 'Main Topic', color: colRoot, shape: 'box', font: {size: 24, color: '#333'}}];
+            let nodes = [{id: 1, label: 'Main Topic', color: style.getPropertyValue('--node-root').trim(), shape:'box', font:{size:20}}];
             let edges = [];
             let nodeId = 2;
 
-            // Split by ending punctuation, keep punctuation, then clean up
             const sentences = text.match(/[^.?!]+[.?!]+["']?|[^.?!]+$/g) || [text];
 
             keywordList.forEach(kw => {
                 const kwId = nodeId++;
-                nodes.push({id: kwId, label: kw, color: colKw, shape: 'ellipse', font: {size: 18, color: '#333'}});
+                nodes.push({id: kwId, label: kw, color: style.getPropertyValue('--node-keyword').trim(), shape:'ellipse'});
                 edges.push({from: 1, to: kwId});
 
                 let count = 0;
-                sentences.forEach(sentence => {
-                    if (sentence.includes(kw) && count < 4) {
-                        let clean = sentence.trim().replace(/[\r\n]+/g, " ");
-                        if (clean.length > 10) {
-                            let labelStr = clean.length > 30 ? clean.substring(0, 30) + "..." : clean;
-                            nodes.push({id: nodeId, label: labelStr, title: clean, color: colSent, shape: 'box', widthConstraint: { maximum: 250 }});
+                sentences.forEach(s => {
+                    if(s.includes(kw) && count < 3) {
+                        if(s.trim().length > 5) {
+                            nodes.push({id: nodeId, label: s.trim().substring(0,20)+"...", title: s.trim(), color: style.getPropertyValue('--node-sentence').trim(), shape:'box'});
                             edges.push({from: kwId, to: nodeId});
                             nodeId++;
                             count++;
@@ -257,11 +248,11 @@
                     }
                 });
             });
+
             drawMap(nodes, edges);
-            saveSession(); // Auto-save after generation
+            saveSession();
         }
 
-        // --- 3. Vis.js Map Drawing ---
         function drawMap(nodesData, edgesData) {
             const container = document.getElementById('mynetwork');
             const data = {
@@ -270,144 +261,235 @@
             };
             
             const options = {
-                nodes: { shape: 'box', margin: 12, borderWidth: 0, shadow: true, font: { face: '-apple-system, sans-serif', color: '#333' } },
-                edges: { color: { color: '#B0B0B0', highlight: '#007AFF' }, width: 2, smooth: { type: 'continuous' } },
-                layout: { hierarchical: { enabled: true, direction: "UD", sortMethod: "hubsize", levelSeparation: 180, nodeSpacing: 200 } },
+                nodes: { shape: 'box', margin: 10, borderWidth: 0, shadow: true, font: { face: 'Pretendard' } },
+                edges: { color: '#B0B0B0', width: 2, smooth: { type: 'cubicBezier' } },
+                layout: { hierarchical: { enabled: true, direction: "UD", sortMethod: "hubsize", levelSeparation: 150 } },
                 physics: false,
-                interaction: { hover: true, multiselect: true },
-                manipulation: { 
-                    enabled: true, 
-                    addEdge: false, // Disabled by default, enabled via "Edit Mode" btn
-                    editEdge: false,
-                    deleteNode: true,
-                    deleteEdge: false
-                }
+                interaction: { hover: true, multiselect: false }
             };
 
             network = new vis.Network(container, data, options);
-            // Listener for auto-save on manual edits
-            network.on("dragEnd", saveSession);
-            network.on("click", saveSession); 
+
+            // 🔥 더블 클릭 이벤트 -> 메뉴 열기
+            network.on("doubleClick", function(params) {
+                if (params.nodes.length > 0) {
+                    selectedNodeId = params.nodes[0];
+                    showContextMenu(params.pointer.DOM);
+                } else {
+                    // 빈 공간 더블클릭 (원하면 여기에 최상위 노드 추가 기능 넣을 수 있음)
+                }
+            });
+
+            // 🔥 클릭 이벤트 -> 이동(Move) 처리
+            network.on("click", function(params) {
+                // 이동 모드이고, 빈 공간이 아닌 다른 노드를 클릭했다면?
+                if (moveSourceId !== null && params.nodes.length > 0) {
+                    const targetId = params.nodes[0];
+                    if (targetId !== moveSourceId) {
+                        executeMove(moveSourceId, targetId);
+                    }
+                }
+                saveSession();
+            });
             
-            // Reset Edit Mode button
-            isEditMode = true; toggleEditMode(); 
+            network.on("dragEnd", saveSession);
         }
 
-        function setLayout(type) {
-            if(!network) return;
-            let options = { physics: false };
-            if (type === 'UD') {
-                options.layout = { hierarchical: { enabled: true, direction: "UD", levelSeparation: 180, nodeSpacing: 200 } };
-            } else if (type === 'LR') {
-                options.layout = { hierarchical: { enabled: true, direction: "LR", levelSeparation: 250, nodeSpacing: 150 } };
-            } else {
-                options.layout = { hierarchical: { enabled: false } };
-                options.physics = { enabled: true, solver: 'forceAtlas2Based', stabilization: { iterations: 200 } };
+        // --- 2. 컨텍스트 메뉴 기능 (핵심) ---
+        function showContextMenu(pos) {
+            const menu = document.getElementById('contextMenu');
+            // 붙여넣기 메뉴 표시 여부
+            document.getElementById('pasteOption').style.display = clipboard ? 'flex' : 'none';
+            
+            menu.style.display = 'block';
+            menu.style.left = pos.x + 'px';
+            menu.style.top = pos.y + 'px';
+        }
+
+        function closeMenu() {
+            document.getElementById('contextMenu').style.display = 'none';
+        }
+
+        function menuAction(action) {
+            closeMenu();
+            const nodes = network.body.data.nodes;
+            const edges = network.body.data.edges;
+
+            if (action === 'delete') {
+                // 삭제: 연결된 엣지도 자동 삭제됨
+                nodes.remove(selectedNodeId);
+            } 
+            else if (action === 'edit') {
+                const oldLabel = nodes.get(selectedNodeId).label;
+                const newLabel = prompt("Edit Text:", oldLabel);
+                if(newLabel) nodes.update({id: selectedNodeId, label: newLabel});
             }
-            network.setOptions(options);
-            if(type !== 'Free') network.fit();
+            else if (action === 'add') {
+                // 추가: 자식 노드로 추가
+                const label = prompt("New Node Name:");
+                if(label) {
+                    const newId = Date.now(); // 유니크 ID
+                    const style = getComputedStyle(document.documentElement);
+                    nodes.add({id: newId, label: label, shape:'box', color: style.getPropertyValue('--node-sentence').trim()});
+                    edges.add({from: selectedNodeId, to: newId});
+                }
+            }
+            else if (action === 'move') {
+                // 이동 모드 시작
+                startMoveMode(selectedNodeId);
+            }
+            else if (action === 'copy') {
+                // 복사: 데이터 저장
+                const nodeData = nodes.get(selectedNodeId);
+                clipboard = { label: nodeData.label, color: nodeData.color, shape: nodeData.shape, title: nodeData.title };
+                // 알림 효과 (선택사항)
+                alert("Copied!"); 
+            }
+            else if (action === 'cut') {
+                // 잘라내기: 복사 후 삭제
+                const nodeData = nodes.get(selectedNodeId);
+                clipboard = { label: nodeData.label, color: nodeData.color, shape: nodeData.shape, title: nodeData.title };
+                nodes.remove(selectedNodeId);
+            }
+            else if (action === 'paste') {
+                // 붙여넣기: 현재 선택된 노드의 자식으로
+                if(clipboard) {
+                    const newId = Date.now();
+                    nodes.add({
+                        id: newId, 
+                        label: clipboard.label, 
+                        color: clipboard.color, 
+                        shape: clipboard.shape,
+                        title: clipboard.title
+                    });
+                    edges.add({from: selectedNodeId, to: newId});
+                }
+            }
             saveSession();
         }
 
-        // --- 4. Save/Load & Export Functions ---
+        // --- 3. 이동(Move) 로직 상세 ---
+        function startMoveMode(id) {
+            moveSourceId = id;
+            // 시각적 피드백: 빨간색 테두리 + 점선
+            const nodes = network.body.data.nodes;
+            const originalColor = nodes.get(id).color;
+            
+            nodes.update({
+                id: id, 
+                borderWidth: 4, 
+                color: { border: '#FF3B30', background: originalColor.background || originalColor },
+                shapeProperties: { borderDashes: true }
+            });
 
-        // A. Auto-Save (Session Storage)
+            document.getElementById('moveModeMsg').style.display = 'block';
+            document.body.style.cursor = 'crosshair'; // 커서 변경
+        }
+
+        function executeMove(sourceId, targetId) {
+            const edges = network.body.data.edges;
+            const nodes = network.body.data.nodes;
+
+            // 1. 기존 부모와의 연결(Edge) 찾아서 삭제
+            // (sourceId로 들어오는(to) 엣지를 찾음)
+            const connectedEdges = network.getConnectedEdges(sourceId);
+            connectedEdges.forEach(edgeId => {
+                const edge = edges.get(edgeId);
+                if (edge.to === sourceId) { // 부모 -> 나 연결선만 삭제
+                    edges.remove(edgeId);
+                }
+            });
+
+            // 2. 새로운 부모(target)와 연결
+            edges.add({from: targetId, to: sourceId});
+
+            // 3. 스타일 원상복구 및 모드 종료
+            const node = nodes.get(sourceId);
+            // 색상은 원래대로 돌리되, border 등 초기화 (간단히 기존 색 재적용)
+            // 정확한 복구를 위해 DataSet에서 다시 읽거나, 단순히 업데이트
+            nodes.update({
+                id: sourceId, 
+                borderWidth: 0, 
+                shapeProperties: { borderDashes: false }
+            });
+
+            moveSourceId = null;
+            document.getElementById('moveModeMsg').style.display = 'none';
+            document.body.style.cursor = 'default';
+        }
+
+        // --- 4. 기타 기능 (레이아웃, 저장, 테마) ---
+        function setLayout(type) {
+            if(!network) return;
+            const options = { physics: false };
+            if (type === 'UD') options.layout = { hierarchical: { enabled: true, direction: "UD", levelSeparation: 150 } };
+            else if (type === 'LR') options.layout = { hierarchical: { enabled: true, direction: "LR", levelSeparation: 200 } };
+            else { options.layout = { hierarchical: { enabled: false } }; options.physics = { enabled: true }; }
+            network.setOptions(options);
+            network.fit();
+        }
+
+        function toggleTheme() {
+            isDarkMode = !isDarkMode;
+            document.documentElement.setAttribute('data-theme', isDarkMode ? 'dark' : 'light');
+            localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
+        }
+
         function saveSession() {
             if (!network) return;
-            const sessionData = {
+            const data = {
                 text: document.getElementById('inputText').value,
-                keywords: document.getElementById('keywords').value,
                 nodes: network.body.data.nodes.get(),
                 edges: network.body.data.edges.get()
             };
-            localStorage.setItem('mindMapSession', JSON.stringify(sessionData));
+            localStorage.setItem('mindMapSessionPro', JSON.stringify(data));
         }
 
         function restoreSession() {
-            const saved = localStorage.getItem('mindMapSession');
+            const saved = localStorage.getItem('mindMapSessionPro');
             if (saved) {
                 try {
                     const data = JSON.parse(saved);
                     document.getElementById('inputText').value = data.text || "";
-                    document.getElementById('keywords').value = data.keywords || "";
-                    if (data.nodes && data.nodes.length > 0) {
-                        drawMap(data.nodes, data.edges);
-                    }
-                } catch (e) { console.error("Failed to restore session", e); }
+                    drawMap(data.nodes, data.edges);
+                } catch(e){}
             }
         }
 
-        // B. Project File Save/Load (Manual)
+        // 파일 저장/로드 및 내보내기 (기존 동일)
         function saveProject() {
-            if (!network) { alert("No mind map to save yet."); return; }
-            const projectData = {
-                timestamp: new Date().toISOString(),
-                text: document.getElementById('inputText').value,
-                keywords: document.getElementById('keywords').value,
-                nodes: network.body.data.nodes.get(),
-                edges: network.body.data.edges.get()
-            };
-            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(projectData, null, 2));
-            const downloadAnchorNode = document.createElement('a');
-            downloadAnchorNode.setAttribute("href", dataStr);
-            downloadAnchorNode.setAttribute("download", "mindmap_project.json");
-            document.body.appendChild(downloadAnchorNode);
-            downloadAnchorNode.click();
-            downloadAnchorNode.remove();
-        }
-
-        function loadProject(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const data = JSON.parse(e.target.result);
-                    document.getElementById('inputText').value = data.text || "";
-                    document.getElementById('keywords').value = data.keywords || "";
-                    drawMap(data.nodes, data.edges);
-                    alert("Project loaded successfully!");
-                } catch (err) {
-                    alert("Failed to load project file. It might be corrupted.");
-                }
-            };
-            reader.readAsText(file);
-            event.target.value = ''; // reset file input
-        }
-
-        // C. Export Images/PDF
-        async function exportMap(type) {
             if (!network) return;
-            // Temporarily fit map and set background for capture
-            network.fit({animation: false});
-            const mapContainer = document.getElementById('mynetwork');
-            const originalBg = mapContainer.style.backgroundColor;
-            // Set background based on theme for clear capture
-            mapContainer.style.backgroundColor = isDarkMode ? '#1C1C1E' : '#F2F2F7'; 
-
-            try {
-                const canvas = await html2canvas(mapContainer, { scale: 2, useCORS: true, logging: false });
-                
-                if (type === 'png' || type === 'jpg') {
-                    const link = document.createElement('a');
-                    link.download = `mindmap_export.${type}`;
-                    link.href = canvas.toDataURL(`image/${type === 'jpg' ? 'jpeg' : 'png'}`, 0.9);
-                    link.click();
-                } else if (type === 'pdf') {
-                    const imgData = canvas.toDataURL('image/png');
-                    // A4 Landscape orientation
-                    const pdf = new jspdf.jsPDF({ orientation: 'landscape' });
-                    const imgProps = pdf.getImageProperties(imgData);
-                    const pdfWidth = pdf.internal.pageSize.getWidth();
-                    const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-                    pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-                    pdf.save('mindmap_export.pdf');
-                }
-            } catch (err) {
-                console.error("Export failed:", err);
-                alert("Failed to export. Please try again.");
-            } finally {
-                mapContainer.style.backgroundColor = originalBg; // Restore background
+            const data = { nodes: network.body.data.nodes.get(), edges: network.body.data.edges.get() };
+            const blob = new Blob([JSON.stringify(data)], {type: "text/json"});
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = "mindmap.json";
+            link.click();
+        }
+        function loadProject(e) {
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                const data = JSON.parse(evt.target.result);
+                drawMap(data.nodes, data.edges);
+            };
+            reader.readAsText(e.target.files[0]);
+        }
+        async function exportMap(type) {
+            const el = document.getElementById('mynetwork');
+            const canvas = await html2canvas(el);
+            if(type === 'pdf') {
+                const img = canvas.toDataURL('image/png');
+                const pdf = new jspdf.jsPDF('l');
+                const props = pdf.getImageProperties(img);
+                const w = pdf.internal.pageSize.getWidth();
+                const h = (props.height * w) / props.width;
+                pdf.addImage(img, 'PNG', 0, 0, w, h);
+                pdf.save('mindmap.pdf');
+            } else {
+                const link = document.createElement('a');
+                link.download = 'mindmap.png';
+                link.href = canvas.toDataURL();
+                link.click();
             }
         }
     </script>
