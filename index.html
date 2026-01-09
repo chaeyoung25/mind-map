@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Mind Map (v3.1)</title>
+    <title>AI Mind Map (v3.2)</title>
     <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -142,10 +142,10 @@
 
             <div style="margin-top:auto;">
                 <p style="font-size:0.75rem; opacity:0.6; line-height:1.5; margin-bottom:0;">
-                    * <b>Multi-Select:</b> Ctrl+Click / Drag<br>
-                    * <b>Board:</b> Full freedom (Up/Down/Nested).
+                    * <b>Free Move:</b> Any node to any position.<br>
+                    * <b>Board:</b> Auto-aligns rows & columns.
                 </p>
-                <div class="version-tag">Version 3.1</div>
+                <div class="version-tag">Version 3.2</div>
             </div>
         </div>
 
@@ -199,7 +199,7 @@
         const BOARD_CONFIG = {
             colWidth: 230,   
             cardGap: 85,    
-            headerY: -250 // Headers (Middle Groups) are here
+            headerY: -250 
         };
 
         window.onload = function() {
@@ -226,6 +226,7 @@
             isRestoring = true;
             const prevStateJSON = historyStack.pop();
             const prevState = JSON.parse(prevStateJSON);
+            
             network.setData({
                 nodes: new vis.DataSet(prevState.nodes), 
                 edges: new vis.DataSet(prevState.edges)
@@ -281,7 +282,6 @@
             const colKw = style.getPropertyValue('--node-keyword').trim();
             const colSent = style.getPropertyValue('--node-sentence').trim();
 
-            // Level 0: Big Group (Main Topic)
             let nodes = [{id: 1, label: 'Main Topic', color: colRoot, shape:'box', font:{size:24, face:'Pretendard', color:'#333'}, level:0}];
             let edges = [];
             let nodeId = 2;
@@ -289,14 +289,12 @@
 
             keywordList.forEach(kw => {
                 const kwId = nodeId++;
-                // Level 1: Middle Group (Keywords)
                 nodes.push({id: kwId, label: kw, color: colKw, shape:'box', font:{size:18, face:'Pretendard', bold:true, color:'#333'}, level:1});
                 edges.push({from: 1, to: kwId});
                 let count = 0;
                 sentences.forEach(s => {
                     if(s.includes(kw) && count < 3) {
                         if(s.trim().length > 5) {
-                            // Level 2: Small Group (Sentences)
                             nodes.push({id: nodeId, label: s.trim().substring(0,40)+"...", title: s.trim(), color: colSent, shape:'box', widthConstraint:{maximum:210}, font:{face:'Pretendard', size:14, color:'#333'}, level:2});
                             edges.push({from: kwId, to: nodeId});
                             nodeId++;
@@ -349,7 +347,7 @@
 
             network.on("doubleClick", (params) => { if(params.nodes.length > 0) editNodeText(); });
             
-            // 🔥 V3.1 UNIVERSAL MOBILITY LOGIC 🔥
+            // 🔥 V3.2 UNIVERSAL DRAG & DROP LOGIC 🔥
             network.on("dragEnd", function (params) {
                 if (!isBoardMode || params.nodes.length === 0) {
                     saveSession();
@@ -362,44 +360,61 @@
                 const edgesDS = network.body.data.edges;
                 const rootId = 1;
                 
-                const dragHeadId = selectedIds[0];
-                const headPos = network.getPositions([dragHeadId])[dragHeadId];
-                
-                // Identify Middle Groups (Level 1) for dropping purposes
                 const allNodes = nodesDS.get();
                 const allEdges = edgesDS.get();
-                
-                // We define "Columns" as any node that is strictly Level 1
-                let columns = allNodes.filter(n => n.level === 1);
-                
-                columns.sort((a,b) => (a.x || 0) - (b.x || 0));
-
-                let targetCol = null;
-                let minDist = Infinity;
-                
-                columns.forEach(col => {
-                    const dist = Math.abs(col.x - headPos.x);
-                    if(dist < minDist) { minDist = dist; targetCol = col; }
-                });
 
                 selectedIds.forEach(nodeId => {
-                    // Do not move the Big Group (Root)
+                    // Skip Root
                     if (nodeId === rootId) return;
 
-                    const pos = network.getPositions([nodeId])[nodeId];
-                    nodesDS.update({ id: nodeId, x: pos.x, y: pos.y });
+                    const draggedPos = network.getPositions([nodeId])[nodeId];
+                    // 1. Update visual position first for sorting
+                    nodesDS.update({ id: nodeId, x: draggedPos.x, y: draggedPos.y });
 
-                    // -- LOGIC: PROMOTION (Small -> Middle) or RESTORATION (Middle -> Middle) --
-                    // If dragged high up (above the card area)
-                    if (pos.y < BOARD_CONFIG.headerY - 50) {
-                        nodesDS.update({id: nodeId, level: 1}); // Become Middle Group
-                        reParentNode(nodeId, rootId, edgesDS); // Connect to Big Group
+                    // 2. Find Nearest Neighbor Logic (The "Magnet")
+                    let nearestNode = null;
+                    let minDistance = Infinity;
+
+                    allNodes.forEach(node => {
+                        if (node.id === nodeId || selectedIds.includes(node.id)) return; // Don't snap to self or other dragged nodes
+                        
+                        const nodePos = network.getPositions([node.id])[node.id];
+                        // Simple Euclidean distance
+                        const dist = Math.sqrt(Math.pow(nodePos.x - draggedPos.x, 2) + Math.pow(nodePos.y - draggedPos.y, 2));
+                        
+                        if (dist < minDistance) {
+                            minDistance = dist;
+                            nearestNode = node;
+                        }
+                    });
+
+                    // 3. Decide Fate based on Position & Nearest Neighbor
+                    
+                    // Case A: Dragged High Up -> Promote to Middle Group (Level 1) attached to Root
+                    if (draggedPos.y < BOARD_CONFIG.headerY - 100) {
+                        nodesDS.update({id: nodeId, level: 1});
+                        reParentNode(nodeId, rootId, edgesDS);
                     }
-                    // -- LOGIC: DEMOTION (Middle -> Small) or MOVE (Small -> Small) --
-                    // If dragged near a column
-                    else if (targetCol && targetCol.id !== nodeId) {
-                        nodesDS.update({id: nodeId, level: 2}); // Become Small Group
-                        reParentNode(nodeId, targetCol.id, edgesDS); // Connect to Middle Group
+                    // Case B: Snap to Nearest Neighbor
+                    else if (nearestNode) {
+                        // If nearest is Root -> Become Middle Group
+                        if (nearestNode.id === rootId) {
+                            nodesDS.update({id: nodeId, level: 1});
+                            reParentNode(nodeId, rootId, edgesDS);
+                        }
+                        // If nearest is Middle Group -> Become Small Group (Level 2)
+                        else if (nearestNode.level === 1) {
+                            nodesDS.update({id: nodeId, level: 2});
+                            reParentNode(nodeId, nearestNode.id, edgesDS);
+                        }
+                        // If nearest is Small Group -> Become Sibling (Same Parent)
+                        else if (nearestNode.level >= 2) {
+                            const parentEdge = allEdges.find(e => e.to === nearestNode.id);
+                            if (parentEdge) {
+                                nodesDS.update({id: nodeId, level: 2});
+                                reParentNode(nodeId, parentEdge.from, edgesDS);
+                            }
+                        }
                     }
                 });
 
@@ -408,11 +423,13 @@
             });
         }
 
-        // Helper to safely change parent
+        // Helper: Cleanly switch parents
         function reParentNode(childId, newParentId, edgesDS) {
+            // Prevent cycles: Check if newParentId is a child of childId
+            if (isDescendant(childId, newParentId, edgesDS)) return;
+
             const allEdges = edgesDS.get();
             const connectedEdges = network.getConnectedEdges(childId);
-            // Find incoming edge (parent -> child)
             const parentEdge = allEdges.find(e => e.to === childId && connectedEdges.includes(e.id));
             
             if (childId === 1 || childId === newParentId) return;
@@ -425,6 +442,16 @@
             } else {
                 edgesDS.add({from: newParentId, to: childId, hidden: true});
             }
+        }
+
+        function isDescendant(parentId, nodeId, edgesDS) {
+            const allEdges = edgesDS.get();
+            let children = allEdges.filter(e => e.from === parentId).map(e => e.to);
+            if (children.includes(nodeId)) return true;
+            for (let child of children) {
+                if (isDescendant(child, nodeId, edgesDS)) return true;
+            }
+            return false;
         }
 
         // --- Actions ---
@@ -547,29 +574,30 @@
             const allNodes = nodes.get();
             const allEdges = edges.get();
 
-            // Find Middle Groups (Level 1)
-            let columns = allNodes.filter(n => n.level === 1);
+            // 1. Identify Columns (Middle Groups)
+            // Rule: Any Level 1 node OR any node directly connected to Root
+            let columns = allNodes.filter(n => {
+                return n.level === 1 || (allEdges.some(e => e.from === rootId && e.to === n.id) && n.id !== rootId);
+            });
             
-            // De-duplicate just in case
             columns = [...new Set(columns)];
             columns.sort((a,b) => (a.x || 0) - (b.x || 0));
 
             const startX = -((columns.length * BOARD_CONFIG.colWidth) / 2) + (BOARD_CONFIG.colWidth/2);
             let updates = [];
             
-            // Big Group (Root)
             updates.push({id: rootId, x: 0, y: BOARD_CONFIG.headerY - 150});
 
             columns.forEach((col, cIdx) => {
                 const cx = startX + (cIdx * BOARD_CONFIG.colWidth);
                 const cy = BOARD_CONFIG.headerY;
                 
-                updates.push({ id: col.id, x: cx, y: cy });
+                updates.push({ id: col.id, x: cx, y: cy, level: 1 });
 
-                // Recursive collector for Small Groups (Level 2+)
                 let stack = [];
                 function collect(parentId) {
                     let children = allNodes.filter(n => allEdges.some(e => e.from === parentId && e.to === n.id));
+                    // Sort by Y for natural order
                     children.sort((a,b) => (a.y || 0) - (b.y || 0));
                     children.forEach(child => {
                         stack.push(child);
@@ -582,7 +610,8 @@
                     updates.push({
                         id: card.id,
                         x: cx,
-                        y: cy + BOARD_CONFIG.cardGap + (rIdx * BOARD_CONFIG.cardGap)
+                        y: cy + BOARD_CONFIG.cardGap + (rIdx * BOARD_CONFIG.cardGap),
+                        level: 2 
                     });
                 });
             });
@@ -606,16 +635,16 @@
         function saveSession() {
             if(!network) return;
             const d = { text: document.getElementById('inputText').value, nodes: network.body.data.nodes.get(), edges: network.body.data.edges.get(), initialState: initialState };
-            localStorage.setItem('mindMapSessionV3_1', JSON.stringify(d));
+            localStorage.setItem('mindMapSessionV3_2', JSON.stringify(d));
         }
         function restoreSession() {
-            const s = localStorage.getItem('mindMapSessionV3_1');
+            const s = localStorage.getItem('mindMapSessionV3_2');
             if(s) { try { const d = JSON.parse(s); document.getElementById('inputText').value = d.text||""; initialState = d.initialState; drawMap(d.nodes, d.edges); } catch(e){} }
         }
         function saveProject() { if(!network) return; const d = { nodes: network.body.data.nodes.get(), edges: network.body.data.edges.get() }; const b = new Blob([JSON.stringify(d)], {type:"text/json"}); const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = "mindmap.json"; a.click(); }
         function loadProject(e) { const r = new FileReader(); r.onload = function(evt) { const d = JSON.parse(evt.target.result); drawMap(d.nodes, d.edges); }; r.readAsText(e.target.files[0]); }
         async function exportMap(t) { const el = document.getElementById('mynetwork'); const c = await html2canvas(el); const l = document.createElement('a'); l.download = 'mindmap.png'; l.href = c.toDataURL(); l.click(); }
-        async function exportWord() { const el = document.getElementById('mynetwork'); const bg = el.style.backgroundColor; el.style.backgroundColor = "#fff"; const c = await html2canvas(el); const d = c.toDataURL('image/png'); el.style.backgroundColor = bg; const h = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Export</title></head><body><h1>Mind Map</h1><br><img src="${d}" style="width:100%"><br><p>v3.1</p></body></html>`; const b = new Blob(['\ufeff', h], { type: 'application/msword' }); const l = document.createElement('a'); l.href = URL.createObjectURL(b); l.download = 'mindmap.doc'; l.click(); }
+        async function exportWord() { const el = document.getElementById('mynetwork'); const bg = el.style.backgroundColor; el.style.backgroundColor = "#fff"; const c = await html2canvas(el); const d = c.toDataURL('image/png'); el.style.backgroundColor = bg; const h = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Export</title></head><body><h1>Mind Map</h1><br><img src="${d}" style="width:100%"><br><p>v3.2</p></body></html>`; const b = new Blob(['\ufeff', h], { type: 'application/msword' }); const l = document.createElement('a'); l.href = URL.createObjectURL(b); l.download = 'mindmap.doc'; l.click(); }
     </script>
 </body>
 </html>
