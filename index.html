@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Mind Map (v6.1 Hierarchy Edit)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AI Mind Map (v6.2 Mobile Fix)</title>
     <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -27,18 +27,45 @@
             --border-color: rgba(255, 255, 255, 0.15);
             --accent-color: #0A84FF;
         }
+        
+        /* Base Reset */
         body { 
             font-family: -apple-system, BlinkMacSystemFont, "Pretendard", sans-serif; 
-            padding: 20px; background-color: var(--bg-color); color: var(--text-color); margin: 0; height: 100vh; 
+            padding: 20px; background-color: var(--bg-color); color: var(--text-color); margin: 0; 
             box-sizing: border-box; transition: background-color 0.3s ease; backdrop-filter: blur(20px);
-            overflow: hidden; user-select: none; 
+            /* Desktop Default: Fixed height, no window scroll */
+            height: 100vh; overflow: hidden; user-select: none; 
         }
-        .container { display: flex; gap: 20px; height: 92vh; flex-direction: column; }
-        @media (min-width: 900px) { 
-            .container { flex-direction: row; } 
-            .input-panel { width: 340px; flex-shrink: 0; } 
-            .map-panel { flex-grow: 1; } 
+
+        .container { display: flex; gap: 20px; height: 92vh; flex-direction: row; }
+        .input-panel { width: 340px; flex-shrink: 0; } 
+        .map-panel { flex-grow: 1; } 
+
+        /* --- 📱 Mobile Responsive Tweaks --- */
+        @media (max-width: 900px) {
+            body {
+                height: auto; /* Allow body to grow */
+                overflow-y: auto; /* Enable vertical scroll */
+                padding: 10px;
+            }
+            .container {
+                flex-direction: column; /* Stack panels vertically */
+                height: auto;
+            }
+            .input-panel {
+                width: 100%;
+                margin-bottom: 20px;
+            }
+            .map-panel {
+                width: 100%;
+                height: 80vh; /* Force map to have height on mobile */
+                min-height: 500px;
+            }
+            textarea {
+                height: 150px; /* Smaller text area on mobile */
+            }
         }
+
         .panel { 
             background: var(--panel-bg); padding: 20px; border-radius: 12px; 
             box-shadow: 0 4px 24px rgba(0,0,0,0.08); border: 1px solid var(--border-color); 
@@ -60,7 +87,8 @@
         .btn-secondary:hover { background-color: rgba(120, 120, 128, 0.2); }
         .btn-toolbar { display: flex; gap: 6px; margin-bottom: 15px; }
         .btn-toolbar .btn { flex: 1; }
-        #mynetwork { width: 100%; height: 100%; outline: none; cursor: default; }
+        #mynetwork { width: 100%; height: 100%; outline: none; cursor: default; touch-action: none; /* Better touch handling for map */ }
+        
         #selectionBox {
             position: absolute;
             background-color: var(--selection-blue);
@@ -72,6 +100,7 @@
         .map-controls { 
             position: absolute; top: 16px; right: 16px; left: 16px; 
             display: flex; justify-content: space-between; pointer-events: none; z-index: 10;
+            flex-wrap: wrap; gap: 5px;
         }
         .control-group { 
             pointer-events: auto; display: flex; gap: 5px; background: var(--panel-bg); 
@@ -123,10 +152,11 @@
 
             <div style="margin-top:auto;">
                 <p style="font-size:0.75rem; opacity:0.6; line-height:1.5; margin-bottom:0;">
-                    * <b>Level Up/Down:</b> Use ⬅️ ➡️ buttons.<br>
-                    * <b>System:</b> v6.0 Stability Maintained.
+                    * <b>Mobile:</b> Scroll Enabled.<br>
+                    * <b>Edit:</b> Up/Down Levels.<br>
+                    * <b>Layouts:</b> Stable Switch.
                 </p>
-                <div class="version-tag">Version 6.1 (Hierarchy)</div>
+                <div class="version-tag">Version 6.2 (Mobile Fix)</div>
             </div>
         </div>
 
@@ -134,26 +164,26 @@
             <div id="statusMessage">Ready</div>
 
             <div class="map-controls">
-                <div style="display:flex; gap:10px;">
+                <div style="display:flex; gap:10px; flex-wrap:wrap;">
                     <div id="contextToolbar" class="control-group" style="border-color: var(--accent-color);">
-                        <button onclick="promoteNode()" title="Level Up (Move Left)">⬅️ Up</button>
-                        <button onclick="demoteNode()" title="Level Down (Move Right)">➡️ Down</button>
+                        <button onclick="promoteNode()" title="Level Up (Left)">⬅️ Up</button>
+                        <button onclick="demoteNode()" title="Level Down (Right)">➡️ Down</button>
                         <span style="width:1px; height:15px; background:var(--border-color); margin:0 2px;"></span>
                         <button class="btn-add" onclick="addChildNode()">➕ Add</button>
-                        <button onclick="cutSelected()">✂️ Cut</button>
-                        <button onclick="duplicateSelected()">📄 Copy</button>
-                        <button onclick="pasteNodes()">📋 Paste</button>
-                        <button onclick="editNodeText()">✏️ Edit</button>
-                        <button onclick="startConnect()">🔗 Link</button>
-                        <button class="btn-unlink" onclick="unlinkNode()">🔗💔 Unlink</button>
-                        <button class="btn-delete" onclick="deleteSelected()">🗑 Del</button>
+                        <button onclick="cutSelected()">✂️</button>
+                        <button onclick="duplicateSelected()">📄</button>
+                        <button onclick="pasteNodes()">📋</button>
+                        <button onclick="editNodeText()">✏️</button>
+                        <button onclick="startConnect()">🔗</button>
+                        <button class="btn-unlink" onclick="unlinkNode()">💔</button>
+                        <button class="btn-delete" onclick="deleteSelected()">🗑</button>
                     </div>
                     <div id="edgeToolbar" class="control-group" style="border-color: var(--warning-color);">
                         <button class="btn-delete" onclick="deleteSelectedEdge()">❌ Delete Line</button>
                     </div>
                 </div>
 
-                <div class="control-group">
+                <div class="control-group" style="margin-top:5px;">
                     <button onclick="undo()" title="Undo">↩️</button>
                     <button onclick="resetMap()" style="color:var(--danger-color)" title="Reset">🔄</button>
                     <span style="width:1px; height:15px; background:var(--border-color); margin:0 2px;"></span>
@@ -200,116 +230,53 @@
             setupKeyboardShortcuts(); setupBoxSelection();
         };
 
-        // --- NEW: Hierarchy Edit Functions ---
-        
-        // ⬅️ Level Up (Promote)
+        // --- Hierarchy Edit ---
         function promoteNode() {
-            const ids = network.getSelectedNodes();
-            if(ids.length === 0) return;
-            const targetId = ids[0];
-            const edges = edgesDS.get();
-            
-            // Find current parent edge
+            const ids = network.getSelectedNodes(); if(ids.length === 0) return;
+            const targetId = ids[0]; const edges = edgesDS.get();
             const currentEdge = edges.find(e => e.to === targetId);
             if(!currentEdge) { showStatus("Cannot promote Root"); return; }
-            
-            const parentId = currentEdge.from;
-            if(parentId === 1) { showStatus("Already at top level"); return; } // Keep main columns attached to Root
-            
-            // Find Grandparent (Target's new parent)
+            const parentId = currentEdge.from; if(parentId === 1) { showStatus("Top level already"); return; }
             const parentEdge = edges.find(e => e.to === parentId);
             if(!parentEdge) { showStatus("Parent is Root"); return; }
-            
             const grandParentId = parentEdge.from;
-            
-            saveHistory();
-            
-            // Re-link
-            edgesDS.remove(currentEdge.id);
+            saveHistory(); edgesDS.remove(currentEdge.id);
             edgesDS.add({from: grandParentId, to: targetId, hidden: currentLayout === 'Board'});
-            
-            // Update Levels & Colors recursively
             refreshNodeVisuals(targetId);
-            
-            // Snap
-            if(currentLayout === 'Board') setTimeout(() => switchLayout('Board'), 50);
-            else showStatus("Promoted!");
+            if(currentLayout === 'Board') setTimeout(() => switchLayout('Board'), 50); else showStatus("Promoted!");
             saveSession();
         }
-
-        // ➡️ Level Down (Demote)
         function demoteNode() {
-            const ids = network.getSelectedNodes();
-            if(ids.length === 0) return;
-            const targetId = ids[0];
-            const edges = edgesDS.get();
-            const nodes = nodesDS.get();
-            
-            const currentEdge = edges.find(e => e.to === targetId);
-            if(!currentEdge) return;
+            const ids = network.getSelectedNodes(); if(ids.length === 0) return;
+            const targetId = ids[0]; const edges = edgesDS.get(); const nodes = nodesDS.get();
+            const currentEdge = edges.find(e => e.to === targetId); if(!currentEdge) return;
             const parentId = currentEdge.from;
-            
-            // Find siblings
             const siblings = edges.filter(e => e.from === parentId && e.to !== targetId).map(e => nodes.find(n => n.id === e.to));
-            
-            // Logic: Find the nearest sibling ABOVE the target (Visual Y position)
             const targetPos = network.getPositions([targetId])[targetId];
-            
-            const candidates = siblings.filter(s => {
-                const sPos = network.getPositions([s.id])[s.id];
-                return sPos.y < targetPos.y; // Sibling is visually above
-            });
-            
-            // Sort by closest Y (largest Y < target Y)
-            candidates.sort((a,b) => {
-                const posA = network.getPositions([a.id])[a.id];
-                const posB = network.getPositions([b.id])[b.id];
-                return posB.y - posA.y; 
-            });
-            
-            if(candidates.length === 0) { showStatus("No sibling above to attach to"); return; }
-            
+            const candidates = siblings.filter(s => { const sPos = network.getPositions([s.id])[s.id]; return sPos.y < targetPos.y; });
+            candidates.sort((a,b) => { const posA = network.getPositions([a.id])[a.id]; const posB = network.getPositions([b.id])[b.id]; return posB.y - posA.y; });
+            if(candidates.length === 0) { showStatus("No sibling above"); return; }
             const newParentId = candidates[0].id;
-            
-            saveHistory();
-            
-            // Re-link
-            edgesDS.remove(currentEdge.id);
+            saveHistory(); edgesDS.remove(currentEdge.id);
             edgesDS.add({from: newParentId, to: targetId, hidden: currentLayout === 'Board'});
-            
-            // Update Levels
             refreshNodeVisuals(targetId);
-            
-            if(currentLayout === 'Board') setTimeout(() => switchLayout('Board'), 50);
-            else showStatus("Demoted!");
+            if(currentLayout === 'Board') setTimeout(() => switchLayout('Board'), 50); else showStatus("Demoted!");
             saveSession();
         }
-
         function refreshNodeVisuals(nodeId) {
-            // Find parent to determine new level
-            const incoming = edgesDS.get().find(e => e.to === nodeId);
-            if(!incoming) return;
-            
-            const parent = nodesDS.get(incoming.from);
-            if(!parent) return;
-            
-            const newLevel = (parent.level || 0) + 1;
-            const color = getNodeColor(newLevel);
-            
+            const incoming = edgesDS.get().find(e => e.to === nodeId); if(!incoming) return;
+            const parent = nodesDS.get(incoming.from); if(!parent) return;
+            const newLevel = (parent.level || 0) + 1; const color = getNodeColor(newLevel);
             nodesDS.update({id: nodeId, level: newLevel, color: {background: color.bg, border: color.border}});
-            
-            // Recurse to children
             const children = edgesDS.get().filter(e => e.from === nodeId);
             children.forEach(c => refreshNodeVisuals(c.to));
         }
 
-        // --- Layout Engine (v6.0 Stable) ---
+        // --- Layout Engine ---
         function switchLayout(type) {
-            saveHistory();
-            currentLayout = type;
+            saveHistory(); currentLayout = type;
             const currentNodes = nodesDS.get(); const currentEdges = edgesDS.get();
             let newNodes = []; let newEdges = [];
-
             if (type === 'Board') {
                 newNodes = calculateBoardPositions(currentNodes, currentEdges);
                 newEdges = currentEdges.map(e => ({...e, hidden: true}));
@@ -317,8 +284,7 @@
                 newNodes = currentNodes.map(n => ({ ...n, x: undefined, y: undefined, fixed: false }));
                 newEdges = currentEdges.map(e => ({...e, hidden: false}));
             }
-            initNetwork(newNodes, newEdges, type);
-            showStatus(type + " Layout");
+            initNetwork(newNodes, newEdges, type); showStatus(type + " Layout");
         }
 
         function initNetwork(nodes, edges, layoutType) {
@@ -366,7 +332,7 @@
             return processedNodes;
         }
 
-        // --- Box Selection (v6.0) ---
+        // --- Box Selection ---
         function setupBoxSelection() {
             const container = document.getElementById('mynetwork'); const box = document.getElementById('selectionBox'); let isSelecting = false; let startX, startY;
             container.addEventListener('mousedown', function(e) { if (e.ctrlKey || e.metaKey) { isSelecting = true; const rect = container.getBoundingClientRect(); startX = e.clientX - rect.left; startY = e.clientY - rect.top; box.style.left = startX + 'px'; box.style.top = startY + 'px'; box.style.width = '0px'; box.style.height = '0px'; box.style.display = 'block'; network.setOptions({ interaction: { dragView: false, dragNodes: false } }); } });
@@ -374,26 +340,24 @@
             window.addEventListener('mouseup', function(e) { if (!isSelecting) return; isSelecting = false; box.style.display = 'none'; network.setOptions({ interaction: { dragView: true, dragNodes: true } }); const rect = container.getBoundingClientRect(); const endX = e.clientX - rect.left; const endY = e.clientY - rect.top; const selectRect = { left: Math.min(startX, endX), top: Math.min(startY, endY), right: Math.max(startX, endX), bottom: Math.max(startY, endY) }; const nodeIds = nodesDS.getIds(); const selectedNodes = []; nodeIds.forEach(id => { const pos = network.canvasToDOM(network.getPositions([id])[id]); if (pos.x >= selectRect.left && pos.x <= selectRect.right && pos.y >= selectRect.top && pos.y <= selectRect.bottom) { selectedNodes.push(id); } }); if(selectedNodes.length > 0) { network.selectNodes(selectedNodes); document.getElementById('contextToolbar').style.display = 'flex'; } });
         }
 
-        // --- Common & History ---
+        // --- Common ---
         function saveHistory() { if(!nodesDS) return; const s = { nodes: nodesDS.get(), edges: edgesDS.get(), layout: currentLayout }; historyStack.push(JSON.stringify(s)); if(historyStack.length > MAX_HISTORY) historyStack.shift(); }
         function undo() { if(historyStack.length === 0) { showStatus("No more steps"); return; } const prevState = JSON.parse(historyStack.pop()); initNetwork(prevState.nodes, prevState.edges, prevState.layout); saveSession(); showStatus("Undo successful"); }
         function resetMap() { if(!initialState) return; if(confirm("Reset?")) { const s = JSON.parse(initialState); let initialEdges = s.edges; if(s.layout === 'Board' || !s.layout) { initialEdges = initialEdges.map(e => ({...e, hidden: true})); } initNetwork(s.nodes, initialEdges, 'Board'); historyStack = []; saveSession(); showStatus("Reset Complete"); } }
         function createNewProject() { if(confirm("Start new?")) { document.getElementById('inputText').value = ""; initNetwork([{id:1, label:'Main Topic', level:0, color:{background:'#FFD1DC'}}], [], 'Board'); historyStack = []; localStorage.removeItem('mindMapSessionV6_1'); showStatus("New Project Created"); } }
+        function toggleTheme() { isDarkMode = !isDarkMode; document.documentElement.setAttribute('data-theme', isDarkMode ? 'dark' : 'light'); localStorage.setItem('theme', isDarkMode ? 'dark' : 'light'); }
+        function showStatus(m) { const el = document.getElementById('statusMessage'); el.innerText = m; el.style.opacity = m ? 1 : 0; if(m) setTimeout(() => el.style.opacity = 0, 3000); }
         function saveSession() { const d = { text: document.getElementById('inputText').value, nodes: nodesDS.get(), edges: edgesDS.get(), layout: currentLayout }; localStorage.setItem('mindMapSessionV6_1', JSON.stringify(d)); }
         function restoreSession() { const s = localStorage.getItem('mindMapSessionV6_1'); if(s) { try { const d = JSON.parse(s); document.getElementById('inputText').value = d.text||""; initNetwork(d.nodes, d.edges, d.layout || 'Board'); } catch(e){} } }
         function exportProject() { const data = { nodes: nodesDS.get(), edges: edgesDS.get(), text: document.getElementById('inputText').value, layout: currentLayout }; const blob = new Blob([JSON.stringify(data)], {type: "application/json"}); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = "mindmap_project.json"; a.click(); showStatus("Saved 💾"); }
         function importProject(event) { const file = event.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = function(e) { try { const data = JSON.parse(e.target.result); if(data.text) document.getElementById('inputText').value = data.text; initNetwork(data.nodes, data.edges, data.layout || 'Board'); showStatus("Loaded 📂"); } catch(err) { alert("Error"); } }; reader.readAsText(file); event.target.value = ''; }
-        function toggleTheme() { isDarkMode = !isDarkMode; document.documentElement.setAttribute('data-theme', isDarkMode ? 'dark' : 'light'); localStorage.setItem('theme', isDarkMode ? 'dark' : 'light'); }
-        function showStatus(m) { const el = document.getElementById('statusMessage'); el.innerText = m; el.style.opacity = m ? 1 : 0; if(m) setTimeout(() => el.style.opacity = 0, 3000); }
-
-        // --- Node Actions ---
         function copySelected() { const ids = network.getSelectedNodes(); if(ids.length > 0) clipboard = nodesDS.get(ids); showStatus(`Copied ${ids.length}`); }
         function cutSelected() { copySelected(); deleteSelected(); showStatus("Cut"); }
         function duplicateSelected() { copySelected(); pasteNodes(); }
         function pasteNodes() { if(clipboard.length === 0) return; saveHistory(); let idMap = {}; clipboard.forEach(node => { let newId = Date.now() + Math.floor(Math.random()*100000); idMap[node.id] = newId; let pos = network.getPositions([node.id])[node.id] || {x:0, y:0}; nodesDS.add({...node, id: newId, x: pos.x + 30, y: pos.y + 30, label: node.label + " (Copy)"}); }); network.selectNodes(Object.values(idMap)); saveSession(); showStatus("Pasted"); }
-        function addChildNode() { const ids = network.getSelectedNodes(); if(ids.length === 0) return; const pid = ids[0]; const l = prompt("Name:"); if(l) { const p = nodesDS.get(pid); const nid = Date.now(); nodesDS.add({id: nid, label: l, level: (p.level||0)+1, shape:'box', color: getNodeColor((p.level||0)+1)}); edgesDS.add({from: pid, to: nid, hidden: currentLayout === 'Board'}); if(currentLayout==='Board') setTimeout(()=>switchLayout('Board'),50); saveSession(); } }
+        function addChildNode() { const ids = network.getSelectedNodes(); if(ids.length === 0) return; const pid = ids[0]; const l = prompt("Name:"); if(l) { saveHistory(); const p = nodesDS.get(pid); const nid = Date.now(); nodesDS.add({id: nid, label: l, level: (p.level||0)+1, shape:'box', color: getNodeColor((p.level||0)+1)}); edgesDS.add({from: pid, to: nid, hidden: currentLayout === 'Board'}); if(currentLayout==='Board') setTimeout(()=>switchLayout('Board'),50); saveSession(); } }
         function editNodeText() { const ids = network.getSelectedNodes(); if(ids.length === 0) return; const l = prompt("Edit:", nodesDS.get(ids[0]).label); if(l !== null) nodesDS.update({id: ids[0], label: l}); saveSession(); }
-        function deleteSelected() { saveHistory(); const ids = network.getSelectedNodes(); nodesDS.remove(ids); const eIds = network.getSelectedEdges(); edgesDS.remove(eIds); document.getElementById('contextToolbar').style.display = 'none'; saveSession(); }
+        function deleteSelected() { saveHistory(); const ids = network.getSelectedNodes(); nodesDS.remove(ids); const eIds = network.getSelectedEdges(); edgesDS.remove(eIds); document.getElementById('contextToolbar').style.display = 'none'; saveSession(); if(currentLayout==='Board') setTimeout(()=>switchLayout('Board'),50); }
         function unlinkNode() { const ids = network.getSelectedNodes(); if(ids.length === 0) return; saveHistory(); const edges = edgesDS.get().filter(e => e.to === ids[0]); edgesDS.remove(edges.map(e => e.id)); showStatus("Unlinked"); saveSession(); }
         function deleteSelectedEdge() { saveHistory(); const ids = network.getSelectedEdges(); edgesDS.remove(ids); document.getElementById('edgeToolbar').style.display = 'none'; saveSession(); }
         function startConnect() { const ids = network.getSelectedNodes(); if(ids.length === 0) return; actionSourceId = ids[0]; currentAction = 'connect'; showStatus("Click target"); }
