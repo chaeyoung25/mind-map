@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Mind Map (v4.8 Final Logic)</title>
+    <title>AI Mind Map (v4.9 Final)</title>
     <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -123,9 +123,9 @@
             </h2>
             
             <div class="btn-toolbar">
-                <button class="btn btn-secondary" onclick="saveProject()">💾 Save</button>
-                <button class="btn btn-secondary" onclick="document.getElementById('fileLoader').click()">📂 Load</button>
-                <input type="file" id="fileLoader" style="display:none" onchange="loadProject(event)" accept=".json">
+                <button class="btn btn-secondary" onclick="exportProject()">💾 Save Project</button>
+                <button class="btn btn-secondary" onclick="document.getElementById('fileLoader').click()">📂 Load Project</button>
+                <input type="file" id="fileLoader" style="display:none" onchange="importProject(event)" accept=".json">
             </div>
 
             <label style="font-size:0.85rem; font-weight:600; color:var(--text-color); margin-bottom:6px; display:block;">Input Text:</label>
@@ -136,9 +136,10 @@
             <div style="margin-top:auto;">
                 <p style="font-size:0.75rem; opacity:0.6; line-height:1.5; margin-bottom:0;">
                     * <b>Multi-Select:</b> Ctrl + Drag<br>
-                    * <b>Free Move:</b> Drag far to create new column.
+                    * <b>Layouts:</b> Fast Switch Fixed.<br>
+                    * <b>Save/Load:</b> Full State Support.
                 </p>
-                <div class="version-tag">Version 4.8</div>
+                <div class="version-tag">Version 4.9</div>
             </div>
         </div>
 
@@ -216,14 +217,66 @@
 
         window.onload = function() {
             if(localStorage.getItem('theme') === 'dark') toggleTheme();
-            if(localStorage.getItem('mindMapSessionV4_8')) {
+            
+            // Check session
+            const savedSession = localStorage.getItem('mindMapSessionV4_9');
+            if(savedSession) {
                 restoreSession();
             } else {
                 drawMap([{id:1, label:'Main Topic', level:0, color:{background:'#FFD1DC'}}], []);
             }
+            
             setupKeyboardShortcuts();
             setupBoxSelection();
         };
+
+        // --- Save & Load Project (FILE) ---
+        function exportProject() {
+            if(!network) return;
+            const data = {
+                nodes: network.body.data.nodes.get(),
+                edges: network.body.data.edges.get(),
+                text: document.getElementById('inputText').value,
+                layoutMode: isBoardMode ? 'Board' : 'Free'
+            };
+            const blob = new Blob([JSON.stringify(data)], {type: "application/json"});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "mindmap_project.json";
+            a.click();
+            URL.revokeObjectURL(url);
+            showStatus("Project Saved! 💾");
+        }
+
+        function importProject(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    // Restore Text Input
+                    if(data.text) document.getElementById('inputText').value = data.text;
+                    
+                    // Restore Graph
+                    drawMap(data.nodes, data.edges);
+                    
+                    // Restore Mode
+                    if(data.layoutMode === 'Board') {
+                        setTimeout(() => setLayout('Board'), 100);
+                    } else {
+                        setLayout('Free'); // Default fallback
+                    }
+                    showStatus("Project Loaded! 📂");
+                } catch(err) {
+                    alert("Error loading file: " + err);
+                }
+            };
+            reader.readAsText(file);
+            // Reset input so same file can be selected again
+            event.target.value = ''; 
+        }
 
         function setupKeyboardShortcuts() {
             document.addEventListener('keydown', function(e) {
@@ -318,6 +371,7 @@
             });
         }
 
+        // --- History & Session ---
         function saveHistory() {
             if(!network || isRestoring) return;
             const s = { nodes: network.body.data.nodes.get(), edges: network.body.data.edges.get() };
@@ -337,6 +391,17 @@
             showStatus("Undo successful");
         }
 
+        function saveSession() {
+            if(!network) return;
+            const d = { text: document.getElementById('inputText').value, nodes: network.body.data.nodes.get(), edges: network.body.data.edges.get(), initialState: initialState };
+            localStorage.setItem('mindMapSessionV4_9', JSON.stringify(d));
+        }
+
+        function restoreSession() {
+            const s = localStorage.getItem('mindMapSessionV4_9');
+            if(s) { try { const d = JSON.parse(s); document.getElementById('inputText').value = d.text||""; initialState = d.initialState; drawMap(d.nodes, d.edges); } catch(e){} }
+        }
+
         function resetMap() {
             if(!initialState) return;
             if(confirm("Reset to original state?")) {
@@ -351,10 +416,12 @@
             }
         }
 
+        // 🔥 Layout Switching (Fixed v4.9) 🔥
         function setLayout(type) {
             saveHistory();
             if (!network) return;
 
+            // ⚠️ CRITICAL: Release locks on all nodes first
             const allNodes = network.body.data.nodes.get();
             const updates = allNodes.map(n => ({id: n.id, fixed: false}));
             network.body.data.nodes.update(updates);
@@ -377,13 +444,15 @@
             } else if (type === 'LR') {
                 options.layout = { hierarchical: { enabled: true, direction: "LR", levelSeparation: 200, sortMethod: 'hubsize' } };
             } else { 
-                options.layout = { hierarchical: { enabled: false } };
+                // Free Layout: Reset positions to allow physics to explode
                 const clearPos = allNodes.map(n => ({id: n.id, x: null, y: null}));
                 network.body.data.nodes.update(clearPos);
+                
+                options.layout = { hierarchical: { enabled: false } };
                 options.physics = { 
                     enabled: true, 
                     solver: 'forceAtlas2Based', 
-                    stabilization: { iterations: 1000 } 
+                    stabilization: { iterations: 200 } 
                 };
             }
 
@@ -412,6 +481,7 @@
             const startX = -((columns.length * BOARD_CONFIG.colWidth) / 2) + (BOARD_CONFIG.colWidth/2);
             let updates = [];
             
+            // Allow manual movement by keeping fixed: false but setting initial pos
             updates.push({id: rootId, x: 0, y: BOARD_CONFIG.headerY - 150, fixed: false});
 
             columns.forEach((col, cIdx) => {
@@ -441,6 +511,7 @@
             network.setOptions({ physics: false, layout: { hierarchical: { enabled: false } } });
         }
 
+        // --- Generator ---
         function processData() {
             const text = document.getElementById('inputText').value;
             if(!text.trim()) { alert("Please input text."); return; }
@@ -551,7 +622,7 @@
 
             network.on("doubleClick", (params) => { if(params.nodes.length > 0) editNodeText(); });
             
-            // --- Drag Logic ---
+            // --- Drag & Drop (Group Move) ---
             let dragStartPos = {};
 
             network.on("dragStart", function(params) {
@@ -584,16 +655,15 @@
                 let columns = allNodes.filter(n => n.level === 1);
                 columns.sort((a,b) => a.x - b.x);
                 
-                // Find Nearest Column
                 let targetCol = null;
                 let minDist = Infinity;
+                
                 columns.forEach(col => {
                     const dist = Math.abs(col.x - newPos.x);
                     if(dist < minDist) { minDist = dist; targetCol = col; }
                 });
 
                 const rootId = 1;
-                // 🔥 NEW: Distance Threshold for Creating New Column
                 const COLUMN_SNAP_DIST = 150; 
 
                 leaders.forEach(nodeId => {
@@ -602,12 +672,10 @@
                     const pos = network.getPositions([nodeId])[nodeId];
                     nodesDS.update({ id: nodeId, x: pos.x, y: pos.y });
 
-                    // A. Promote to Header (High Y) OR (Far from columns = New Group)
                     if (pos.y < BOARD_CONFIG.headerY + 50 || minDist > COLUMN_SNAP_DIST) {
                         updateSubtreeLevels(nodeId, 1, nodesDS, edgesDS);
                         reParentNode(nodeId, rootId, edgesDS);
                     }
-                    // B. Snap to Column (Near Column + Low Y)
                     else if (targetCol && targetCol.id !== nodeId) {
                         updateSubtreeLevels(nodeId, 2, nodesDS, edgesDS);
                         reParentNode(nodeId, targetCol.id, edgesDS);
@@ -619,6 +687,7 @@
             });
         }
 
+        // --- Recursive Helpers ---
         function updateSubtreeLevels(rootId, newBaseLevel, nodesDS, edgesDS) {
             const node = nodesDS.get(rootId);
             const diff = newBaseLevel - node.level;
@@ -651,6 +720,7 @@
             }
         }
 
+        // --- Copy / Paste ---
         function copySelected() {
             const selectedIds = network.getSelectedNodes();
             if (selectedIds.length === 0) return;
@@ -707,6 +777,7 @@
             showStatus("Pasted!");
         }
 
+        // --- Standard Actions ---
         function getSelectedNode() { const ids = network.getSelectedNodes(); return ids.length > 0 ? ids[0] : null; }
         
         function addChildNode() {
@@ -786,6 +857,7 @@
             document.body.style.cursor = "default"; showStatus("");
         }
 
+        // --- Theme & Export ---
         function toggleTheme() {
             isDarkMode = !isDarkMode;
             document.documentElement.setAttribute('data-theme', isDarkMode ? 'dark' : 'light');
@@ -796,19 +868,10 @@
             el.innerText = m; el.style.opacity = m ? 1 : 0;
             if(m) setTimeout(() => el.style.opacity = 0, 3000);
         }
-        function saveSession() {
-            if(!network) return;
-            const d = { text: document.getElementById('inputText').value, nodes: network.body.data.nodes.get(), edges: network.body.data.edges.get(), initialState: initialState };
-            localStorage.setItem('mindMapSessionV4_8', JSON.stringify(d));
-        }
-        function restoreSession() {
-            const s = localStorage.getItem('mindMapSessionV4_8');
-            if(s) { try { const d = JSON.parse(s); document.getElementById('inputText').value = d.text||""; initialState = d.initialState; drawMap(d.nodes, d.edges); } catch(e){} }
-        }
         function saveProject() { if(!network) return; const d = { nodes: network.body.data.nodes.get(), edges: network.body.data.edges.get() }; const b = new Blob([JSON.stringify(d)], {type:"text/json"}); const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = "mindmap.json"; a.click(); }
         function loadProject(e) { const r = new FileReader(); r.onload = function(evt) { const d = JSON.parse(evt.target.result); drawMap(d.nodes, d.edges); }; r.readAsText(e.target.files[0]); }
         async function exportMap(t) { const el = document.getElementById('mynetwork'); const c = await html2canvas(el); const l = document.createElement('a'); l.download = 'mindmap.png'; l.href = c.toDataURL(); l.click(); }
-        async function exportWord() { const el = document.getElementById('mynetwork'); const bg = el.style.backgroundColor; el.style.backgroundColor = "#fff"; const c = await html2canvas(el); const d = c.toDataURL('image/png'); el.style.backgroundColor = bg; const h = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Export</title></head><body><h1>Mind Map</h1><br><img src="${d}" style="width:100%"><br><p>v4.8</p></body></html>`; const b = new Blob(['\ufeff', h], { type: 'application/msword' }); const l = document.createElement('a'); l.href = URL.createObjectURL(b); l.download = 'mindmap.doc'; l.click(); }
+        async function exportWord() { const el = document.getElementById('mynetwork'); const bg = el.style.backgroundColor; el.style.backgroundColor = "#fff"; const c = await html2canvas(el); const d = c.toDataURL('image/png'); el.style.backgroundColor = bg; const h = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Export</title></head><body><h1>Mind Map</h1><br><img src="${d}" style="width:100%"><br><p>v4.9</p></body></html>`; const b = new Blob(['\ufeff', h], { type: 'application/msword' }); const l = document.createElement('a'); l.href = URL.createObjectURL(b); l.download = 'mindmap.doc'; l.click(); }
     </script>
 </body>
 </html>
