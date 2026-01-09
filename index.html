@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Mind Map (v4.5 Pro)</title>
+    <title>AI Mind Map (v4.6 Final Fix)</title>
     <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -18,12 +18,6 @@
             --accent-color: #007AFF;
             --selection-blue: rgba(0, 122, 255, 0.15);
             --selection-border: #007AFF;
-            
-            /* Node Colors */
-            --col-root-bg: #FFD1DC; --col-root-bd: #FFB7C5;
-            --col-topic-bg: #FFE6A7; --col-topic-bd: #FFD580;
-            --col-sub-bg: #CDF0EA; --col-sub-bd: #A6E3D9;
-            --col-det-bg: #FFFFFF; --col-det-bd: #E0E0E0;
         }
 
         [data-theme="dark"] {
@@ -38,7 +32,7 @@
             font-family: -apple-system, BlinkMacSystemFont, "Pretendard", sans-serif; 
             padding: 20px; background-color: var(--bg-color); color: var(--text-color); margin: 0; height: 100vh; 
             box-sizing: border-box; transition: background-color 0.3s ease; backdrop-filter: blur(20px);
-            overflow: hidden; user-select: none; /* Prevent text selection during drag */
+            overflow: hidden; user-select: none; 
         }
 
         .container { display: flex; gap: 20px; height: 92vh; flex-direction: column; }
@@ -61,7 +55,7 @@
             width: 100%; height: 200px; padding: 14px; border-radius: 10px; border: 1px solid var(--border-color); 
             resize: none; font-family: inherit; margin-bottom: 10px; background: var(--bg-color); 
             color: var(--text-color); box-sizing: border-box; outline: none; transition: 0.2s; font-size: 0.9rem; line-height: 1.5;
-            user-select: text; /* Allow text selection inside textarea */
+            user-select: text; 
         }
         textarea:focus { border-color: var(--accent-color); }
 
@@ -75,7 +69,6 @@
 
         #mynetwork { width: 100%; height: 100%; outline: none; cursor: default; }
         
-        /* Selection Box */
         #selectionBox {
             position: absolute;
             background-color: var(--selection-blue);
@@ -135,18 +128,17 @@
                 <input type="file" id="fileLoader" style="display:none" onchange="loadProject(event)" accept=".json">
             </div>
 
-            <label style="font-size:0.85rem; font-weight:600; color:var(--text-color); margin-bottom:6px; display:block;">Sermon / Note Input:</label>
-            <textarea id="inputText" placeholder="Paste your text here... The system will organize it into a Board."></textarea>
+            <label style="font-size:0.85rem; font-weight:600; color:var(--text-color); margin-bottom:6px; display:block;">Input Text:</label>
+            <textarea id="inputText" placeholder="Paste your text here..."></textarea>
             
             <button class="btn btn-primary" onclick="processData()">✨ Generate Mind Map</button>
 
             <div style="margin-top:auto;">
                 <p style="font-size:0.75rem; opacity:0.6; line-height:1.5; margin-bottom:0;">
-                    * <b>Multi-Select:</b> Hold <b>Ctrl</b> + Drag.<br>
-                    * <b>Copy/Paste:</b> Ctrl+C, Ctrl+V.<br>
-                    * <b>Structure:</b> Auto-aligns like OneNote.
+                    * <b>Multi-Select:</b> Ctrl + Drag<br>
+                    * <b>Layouts:</b> All buttons fixed.
                 </p>
-                <div class="version-tag">Version 4.5</div>
+                <div class="version-tag">Version 4.6</div>
             </div>
         </div>
 
@@ -175,7 +167,7 @@
                     <button onclick="setLayout('UD')">🌳 Tree</button>
                     <button onclick="setLayout('LR')">🧱 Block</button>
                     <button onclick="setLayout('Free')">✨ Free</button>
-                    <button onclick="setLayout('Board')" title="OneNote Board Layout">📋 Board</button>
+                    <button onclick="setLayout('Board')" title="OneNote Style">📋 Board</button>
                     <span style="width:1px; height:15px; background:var(--border-color); margin:0 2px;"></span>
                     <button onclick="exportMap('png')">📷</button>
                     <button onclick="exportWord()">📝</button>
@@ -197,10 +189,9 @@
         let initialState = null;
         const MAX_HISTORY = 100;
         let isRestoring = false;
-        let isBoardMode = true; // Default to Board mode for v4.5
-        let clipboard = []; // For Copy/Paste
+        let isBoardMode = true; 
+        let clipboard = [];
 
-        // --- Config & Colors ---
         const BOARD_CONFIG = {
             colWidth: 320,   
             cardGap: 70,    
@@ -223,20 +214,14 @@
             return LEVEL_COLORS[idx];
         }
 
-        // --- Initialization ---
         window.onload = function() {
-            try {
-                if(localStorage.getItem('theme') === 'dark') toggleTheme();
-                // Check if session exists, else initialize empty
-                if (localStorage.getItem('mindMapSessionV4_5')) {
-                    restoreSession();
-                } else {
-                    // Initialize empty network to prevent errors
-                    drawMap([], []);
-                }
-            } catch(e) {
-                console.error("Init error:", e);
-                drawMap([], []);
+            if(localStorage.getItem('theme') === 'dark') toggleTheme();
+            
+            // Initialize Empty Map if no session
+            if(localStorage.getItem('mindMapSessionV4_6')) {
+                restoreSession();
+            } else {
+                drawMap([{id:1, label:'Main Topic', level:0, color:{background:'#FFD1DC'}}], []);
             }
 
             setupKeyboardShortcuts();
@@ -245,38 +230,23 @@
 
         function setupKeyboardShortcuts() {
             document.addEventListener('keydown', function(e) {
-                // Delete
                 if(e.key === 'Delete' || e.key === 'Backspace') {
-                    // Only if not editing text
                     if (document.activeElement.tagName !== "INPUT" && document.activeElement.tagName !== "TEXTAREA") {
                         if(network.getSelectedNodes().length > 0) deleteSelected();
                         if(network.getSelectedEdges().length > 0) deleteSelectedEdge();
                     }
                 }
-                // Undo: Ctrl+Z
-                if((e.ctrlKey || e.metaKey) && e.key === 'z') {
-                    e.preventDefault();
-                    undo();
-                }
-                // Copy: Ctrl+C
+                if((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); undo(); }
                 if((e.ctrlKey || e.metaKey) && e.key === 'c') {
-                    // Don't intercept if in textarea
-                    if (document.activeElement.tagName !== "TEXTAREA") {
-                        e.preventDefault();
-                        copySelected();
-                    }
+                    if (document.activeElement.tagName !== "TEXTAREA") { e.preventDefault(); copySelected(); }
                 }
-                // Paste: Ctrl+V
                 if((e.ctrlKey || e.metaKey) && e.key === 'v') {
-                    if (document.activeElement.tagName !== "TEXTAREA") {
-                        e.preventDefault();
-                        pasteNodes();
-                    }
+                    if (document.activeElement.tagName !== "TEXTAREA") { e.preventDefault(); pasteNodes(); }
                 }
             });
         }
 
-        // --- Box Selection Logic ---
+        // --- Box Selection ---
         function setupBoxSelection() {
             const container = document.getElementById('mynetwork');
             const box = document.getElementById('selectionBox');
@@ -352,7 +322,132 @@
             });
         }
 
-        // --- Core Generator ---
+        // --- History ---
+        function saveHistory() {
+            if(!network || isRestoring) return;
+            const s = { nodes: network.body.data.nodes.get(), edges: network.body.data.edges.get() };
+            historyStack.push(JSON.stringify(s));
+            if(historyStack.length > MAX_HISTORY) historyStack.shift();
+        }
+
+        function undo() {
+            if(historyStack.length === 0) { showStatus("No more steps"); return; }
+            isRestoring = true;
+            const prevStateJSON = historyStack.pop();
+            const prevState = JSON.parse(prevStateJSON);
+            network.setData({ nodes: new vis.DataSet(prevState.nodes), edges: new vis.DataSet(prevState.edges) });
+            saveSession();
+            if(isBoardMode) setTimeout(() => { toggleEdges(false); layoutBoard(); isRestoring = false; }, 50);
+            else isRestoring = false;
+            showStatus("Undo successful");
+        }
+
+        function resetMap() {
+            if(!initialState) return;
+            if(confirm("Reset to original state?")) {
+                isRestoring = true;
+                const s = JSON.parse(initialState);
+                network.setData({nodes: new vis.DataSet(s.nodes), edges: new vis.DataSet(s.edges)});
+                historyStack = [];
+                isBoardMode = false;
+                toggleEdges(true);
+                saveSession();
+                isRestoring = false;
+            }
+        }
+
+        // --- Layout Switching Logic (FIXED v4.6) ---
+        function setLayout(type) {
+            saveHistory();
+            if (!network) return;
+
+            if (type === 'Board') {
+                isBoardMode = true;
+                toggleEdges(false);
+                layoutBoard();
+                showStatus("Board Layout");
+                return;
+            }
+
+            // Switching to Tree/Block/Free
+            isBoardMode = false;
+            toggleEdges(true);
+
+            // ⚠️ CRITICAL FIX: Unlock nodes so they can move in other layouts
+            const nodes = network.body.data.nodes;
+            const updates = nodes.get().map(n => ({ id: n.id, x: null, y: null, fixed: false }));
+            nodes.update(updates);
+
+            let options = { physics: { enabled: false } };
+
+            if (type === 'UD') {
+                options.layout = { hierarchical: { enabled: true, direction: "UD", levelSeparation: 150, sortMethod: 'hubsize' } };
+            } else if (type === 'LR') {
+                options.layout = { hierarchical: { enabled: true, direction: "LR", levelSeparation: 200, sortMethod: 'hubsize' } };
+            } else { // Free
+                options.layout = { hierarchical: { enabled: false } };
+                options.physics = { 
+                    enabled: true, 
+                    solver: 'forceAtlas2Based', 
+                    stabilization: { iterations: 1000 } 
+                };
+            }
+
+            network.setOptions(options);
+            network.fit();
+            showStatus(type + " Layout");
+        }
+
+        function toggleEdges(visible) {
+            if(!network) return;
+            const edges = network.body.data.edges.get();
+            const updates = edges.map(e => ({ id: e.id, hidden: !visible }));
+            network.body.data.edges.update(updates);
+        }
+
+        function layoutBoard() {
+            const nodes = network.body.data.nodes;
+            const edges = network.body.data.edges;
+            const rootId = 1;
+            const allNodes = nodes.get();
+            const allEdges = edges.get();
+
+            let columns = allNodes.filter(n => n.level === 1);
+            columns.sort((a,b) => (a.x || 0) - (b.x || 0));
+
+            const startX = -((columns.length * BOARD_CONFIG.colWidth) / 2) + (BOARD_CONFIG.colWidth/2);
+            let updates = [];
+            
+            updates.push({id: rootId, x: 0, y: BOARD_CONFIG.headerY - 150, fixed: true});
+
+            columns.forEach((col, cIdx) => {
+                const cx = startX + (cIdx * BOARD_CONFIG.colWidth);
+                const cy = BOARD_CONFIG.headerY;
+                updates.push({ id: col.id, x: cx, y: cy, fixed: true });
+
+                let currentY = cy + BOARD_CONFIG.cardGap;
+                function placeDescendants(parentId, depth) {
+                    let children = allNodes.filter(n => allEdges.some(e => e.from === parentId && e.to === n.id));
+                    children.sort((a,b) => (a.y || 0) - (b.y || 0));
+                    children.forEach(child => {
+                        updates.push({
+                            id: child.id,
+                            x: cx + (depth * BOARD_CONFIG.indent),
+                            y: currentY,
+                            fixed: true // Fix position for Board mode
+                        });
+                        currentY += BOARD_CONFIG.cardGap;
+                        placeDescendants(child.id, depth + 1);
+                    });
+                }
+                placeDescendants(col.id, 0);
+            });
+
+            nodes.update(updates);
+            network.setOptions({ physics: false, layout: { hierarchical: { enabled: false } } });
+        }
+
+        // --- Generator ---
         function processData() {
             const text = document.getElementById('inputText').value;
             if(!text.trim()) { alert("Please input text."); return; }
@@ -364,7 +459,6 @@
 
             const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
             
-            // Level 0: Main Title
             let mainTopic = lines[0].replace(/["']/g, ""); 
             if(mainTopic.length > 50) mainTopic = mainTopic.substring(0, 50) + "...";
             
@@ -417,18 +511,13 @@
 
                 edges.push({from: parentId, to: nodeId});
                 lastNodeByLevel[depth] = nodeId;
-                // Clean up lower levels
                 for (let d = depth + 1; d <= 10; d++) delete lastNodeByLevel[d];
             }
 
             drawMap(nodes, edges);
             initialState = JSON.stringify({nodes: nodes, edges: edges});
             
-            // Force layout after small delay
-            setTimeout(() => {
-                isBoardMode = true;
-                layoutBoard();
-            }, 100);
+            setTimeout(() => setLayout('Board'), 100);
             saveSession();
         }
 
@@ -438,13 +527,12 @@
             const options = {
                 nodes: { shape: 'box', margin: 10, borderWidth: 1, shadow: true, font: { face: 'Pretendard', color:'#333' } },
                 edges: { color: '#B0B0B0', width: 2, smooth: { type: 'cubicBezier', forceDirection: 'vertical', roundness: 0.4 } },
-                physics: false, // Ensure physics is off for manual layout stability
+                physics: false,
                 interaction: { hover: true, selectConnectedEdges: false, multiselect: true, dragView: true }
             };
 
             network = new vis.Network(container, data, options);
 
-            // Event Listeners
             network.on("selectNode", () => {
                 if(currentAction) return;
                 document.getElementById('contextToolbar').style.display = 'flex';
@@ -470,7 +558,7 @@
 
             network.on("doubleClick", (params) => { if(params.nodes.length > 0) editNodeText(); });
             
-            // --- Drag & Drop Logic (Group Move) ---
+            // --- Drag & Drop (Group Move) ---
             let dragStartPos = {};
 
             network.on("dragStart", function(params) {
@@ -493,14 +581,12 @@
                 const edgesDS = network.body.data.edges;
                 const allEdges = edgesDS.get();
                 
-                // Identify "Leaders" (Nodes not children of other selected nodes)
                 let leaders = selectedIds.filter(id => {
                     const incoming = allEdges.find(e => e.to === id);
                     if (incoming && selectedIds.includes(incoming.from)) return false; 
                     return true; 
                 });
 
-                // Find Target Column based on Leader Position
                 const allNodes = nodesDS.get();
                 let columns = allNodes.filter(n => n.level === 1);
                 columns.sort((a,b) => a.x - b.x);
@@ -521,12 +607,10 @@
                     const pos = network.getPositions([nodeId])[nodeId];
                     nodesDS.update({ id: nodeId, x: pos.x, y: pos.y });
 
-                    // A. Promote to Header
                     if (pos.y < BOARD_CONFIG.headerY - 50) {
                         updateSubtreeLevels(nodeId, 1, nodesDS, edgesDS);
                         reParentNode(nodeId, rootId, edgesDS);
                     }
-                    // B. Snap to Column
                     else if (targetCol && targetCol.id !== nodeId) {
                         updateSubtreeLevels(nodeId, 2, nodesDS, edgesDS);
                         reParentNode(nodeId, targetCol.id, edgesDS);
@@ -571,11 +655,11 @@
             }
         }
 
-        // --- Copy / Paste Logic ---
+        // --- Copy / Paste ---
         function copySelected() {
             const selectedIds = network.getSelectedNodes();
             if (selectedIds.length === 0) return;
-            clipboard = selectedIds; // Store IDs
+            clipboard = selectedIds; 
             showStatus(`Copied ${selectedIds.length} nodes`);
         }
 
@@ -604,18 +688,16 @@
                 nodesDS.add({
                     ...oldNode,
                     id: newId,
-                    x: pos.x + 30, // Offset
+                    x: pos.x + 30, 
                     y: pos.y + 30,
                     label: oldNode.label
                 });
             });
 
-            // Re-link
             clipboard.forEach(oldId => {
                 const incoming = allEdges.find(e => e.to === oldId);
                 if (incoming) {
                     const newChildId = idMap[oldId];
-                    // If parent was copied, link to new parent. Else link to old parent.
                     let newParentId = idMap[incoming.from] ? idMap[incoming.from] : incoming.from;
                     
                     if (newChildId) {
@@ -710,92 +792,12 @@
             document.body.style.cursor = "default"; showStatus("");
         }
 
-        // --- Layout & Theme ---
+        // --- Theme & Export ---
         function toggleTheme() {
             isDarkMode = !isDarkMode;
             document.documentElement.setAttribute('data-theme', isDarkMode ? 'dark' : 'light');
             localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
         }
-
-        function setLayout(t) {
-            saveHistory();
-            if(!network) return;
-            
-            if (t === 'Board') {
-                isBoardMode = true;
-                toggleEdges(false);
-                layoutBoard();
-                return;
-            } else {
-                isBoardMode = false;
-                toggleEdges(true);
-            }
-
-            let o = { physics: false };
-            if(t==='UD') {
-                o.layout = { hierarchical: { enabled: true, direction: "UD", levelSeparation: 150 } };
-            } else if(t==='LR') {
-                o.layout = { hierarchical: { enabled: true, direction: "LR", levelSeparation: 200 } };
-            } else {
-                o.layout = { hierarchical: { enabled: false } };
-                o.physics = { enabled: true, solver: 'forceAtlas2Based', stabilization: { iterations: 200 } };
-                network.once("stabilized", function() { network.setOptions({ physics: false }); });
-            }
-            network.setOptions(o);
-            if (t !== 'Free') network.fit();
-        }
-
-        function toggleEdges(visible) {
-            if(!network) return;
-            const edges = network.body.data.edges.get();
-            const updates = edges.map(e => ({ id: e.id, hidden: !visible }));
-            network.body.data.edges.update(updates);
-        }
-
-        function layoutBoard() {
-            const nodes = network.body.data.nodes;
-            const edges = network.body.data.edges;
-            const rootId = 1;
-            const allNodes = nodes.get();
-            const allEdges = edges.get();
-
-            let columns = allNodes.filter(n => n.level === 1);
-            columns = [...new Set(columns)];
-            columns.sort((a,b) => (a.x || 0) - (b.x || 0));
-
-            const startX = -((columns.length * BOARD_CONFIG.colWidth) / 2) + (BOARD_CONFIG.colWidth/2);
-            let updates = [];
-            
-            updates.push({id: rootId, x: 0, y: BOARD_CONFIG.headerY - 150});
-
-            columns.forEach((col, cIdx) => {
-                const cx = startX + (cIdx * BOARD_CONFIG.colWidth);
-                const cy = BOARD_CONFIG.headerY;
-                updates.push({ id: col.id, x: cx, y: cy });
-
-                let currentY = cy + BOARD_CONFIG.cardGap;
-                function placeDescendants(parentId, depth) {
-                    let children = allNodes.filter(n => allEdges.some(e => e.from === parentId && e.to === n.id));
-                    children.sort((a,b) => (a.y || 0) - (b.y || 0));
-                    children.forEach(child => {
-                        updates.push({
-                            id: child.id,
-                            x: cx + (depth * BOARD_CONFIG.indent),
-                            y: currentY
-                        });
-                        currentY += BOARD_CONFIG.cardGap;
-                        placeDescendants(child.id, depth + 1);
-                    });
-                }
-                placeDescendants(col.id, 0);
-            });
-
-            nodes.update(updates);
-            network.setOptions({ physics: false, layout: { hierarchical: { enabled: false } } });
-            showStatus("Board Aligned");
-        }
-
-        // --- Save/Load/Export ---
         function showStatus(m) {
             const el = document.getElementById('statusMessage');
             el.innerText = m; el.style.opacity = m ? 1 : 0;
@@ -803,19 +805,17 @@
         }
         function saveSession() {
             if(!network) return;
-            try {
-                const d = { text: document.getElementById('inputText').value, nodes: network.body.data.nodes.get(), edges: network.body.data.edges.get(), initialState: initialState };
-                localStorage.setItem('mindMapSessionV4_5', JSON.stringify(d));
-            } catch(e) {}
+            const d = { text: document.getElementById('inputText').value, nodes: network.body.data.nodes.get(), edges: network.body.data.edges.get(), initialState: initialState };
+            localStorage.setItem('mindMapSessionV4_6', JSON.stringify(d));
         }
         function restoreSession() {
-            const s = localStorage.getItem('mindMapSessionV4_5');
+            const s = localStorage.getItem('mindMapSessionV4_6');
             if(s) { try { const d = JSON.parse(s); document.getElementById('inputText').value = d.text||""; initialState = d.initialState; drawMap(d.nodes, d.edges); } catch(e){} }
         }
         function saveProject() { if(!network) return; const d = { nodes: network.body.data.nodes.get(), edges: network.body.data.edges.get() }; const b = new Blob([JSON.stringify(d)], {type:"text/json"}); const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = "mindmap.json"; a.click(); }
         function loadProject(e) { const r = new FileReader(); r.onload = function(evt) { const d = JSON.parse(evt.target.result); drawMap(d.nodes, d.edges); }; r.readAsText(e.target.files[0]); }
         async function exportMap(t) { const el = document.getElementById('mynetwork'); const c = await html2canvas(el); const l = document.createElement('a'); l.download = 'mindmap.png'; l.href = c.toDataURL(); l.click(); }
-        async function exportWord() { const el = document.getElementById('mynetwork'); const bg = el.style.backgroundColor; el.style.backgroundColor = "#fff"; const c = await html2canvas(el); const d = c.toDataURL('image/png'); el.style.backgroundColor = bg; const h = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Export</title></head><body><h1>Mind Map</h1><br><img src="${d}" style="width:100%"><br><p>v4.5</p></body></html>`; const b = new Blob(['\ufeff', h], { type: 'application/msword' }); const l = document.createElement('a'); l.href = URL.createObjectURL(b); l.download = 'mindmap.doc'; l.click(); }
+        async function exportWord() { const el = document.getElementById('mynetwork'); const bg = el.style.backgroundColor; el.style.backgroundColor = "#fff"; const c = await html2canvas(el); const d = c.toDataURL('image/png'); el.style.backgroundColor = bg; const h = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Export</title></head><body><h1>Mind Map</h1><br><img src="${d}" style="width:100%"><br><p>v4.6</p></body></html>`; const b = new Blob(['\ufeff', h], { type: 'application/msword' }); const l = document.createElement('a'); l.href = URL.createObjectURL(b); l.download = 'mindmap.doc'; l.click(); }
     </script>
 </body>
 </html>
