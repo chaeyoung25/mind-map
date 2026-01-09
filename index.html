@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Mind Map (v1.8)</title>
+    <title>AI Mind Map (v1.9)</title>
     <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -139,10 +139,10 @@
 
             <div style="margin-top:auto;">
                 <p style="font-size:0.75rem; opacity:0.6; line-height:1.5; margin-bottom:0;">
-                    * <b>Click Node:</b> Open Menu<br>
+                    * <b>Board View:</b> Lines are hidden for drag & drop.<br>
                     * <b>Auto-Save:</b> Enabled
                 </p>
-                <div class="version-tag">Version 1.8</div>
+                <div class="version-tag">Version 1.9</div>
             </div>
         </div>
 
@@ -171,7 +171,8 @@
                     <button onclick="setLayout('UD')">🌳 Tree</button>
                     <button onclick="setLayout('LR')">🧱 Block</button>
                     <button onclick="setLayout('Free')">✨ Free</button>
-                    <button onclick="setLayout('Board')">📋 Board</button> <span style="width:1px; height:15px; background:var(--border-color); margin:0 2px;"></span>
+                    <button onclick="setLayout('Board')" title="Notion Board View (No Lines)">📋 Board</button>
+                    <span style="width:1px; height:15px; background:var(--border-color); margin:0 2px;"></span>
                     <button onclick="exportMap('png')">📷 IMG</button>
                     <button onclick="exportWord()">📝 Word</button>
                 </div>
@@ -189,6 +190,7 @@
         let historyStack = [];
         let initialState = null;
         const MAX_HISTORY = 50; 
+        let isBoardMode = false; // Track board mode
 
         window.onload = function() {
             if(localStorage.getItem('theme') === 'dark') toggleTheme();
@@ -213,6 +215,8 @@
             const p = JSON.parse(historyStack.pop());
             network.setData({nodes: new vis.DataSet(p.nodes), edges: new vis.DataSet(p.edges)});
             saveSession();
+            // If we were in board mode, re-apply edge hiding if needed, but easier to just reset mode
+            if(isBoardMode) setLayout('Board');
         }
         function resetMap() {
             if(!initialState) return;
@@ -220,6 +224,8 @@
                 const s = JSON.parse(initialState);
                 network.setData({nodes: new vis.DataSet(s.nodes), edges: new vis.DataSet(s.edges)});
                 historyStack = [];
+                isBoardMode = false;
+                toggleEdges(true);
                 saveSession();
             }
         }
@@ -246,7 +252,6 @@
             const colKw = style.getPropertyValue('--node-keyword').trim();
             const colSent = style.getPropertyValue('--node-sentence').trim();
 
-            // ID 1 is reserved for Root
             let nodes = [{id: 1, label: 'Main Topic', color: colRoot, shape:'box', font:{size:24, face:'Pretendard'}, level:0}];
             let edges = [];
             let nodeId = 2;
@@ -375,9 +380,6 @@
             connected.forEach(eid => { const e = edges.get(eid); if(e.to === src) edges.remove(eid); });
             edges.add({from: tgt, to: src});
             finishAction(src); showStatus("Moved!");
-            
-            // Auto-refresh layout if in board mode (optional, but good for UX)
-            // setLayout('Board'); // Uncomment if you want auto-snap after move
         }
         function startConnect() {
             const id = getSelectedNode(); if(!id) return;
@@ -409,9 +411,15 @@
             saveHistory();
             if(!network) return;
             
+            // Check if entering Board mode
             if (t === 'Board') {
-                layoutBoard(); // Custom Board Layout Function
+                isBoardMode = true;
+                toggleEdges(false); // Hide lines!
+                layoutBoard();
                 return;
+            } else {
+                isBoardMode = false;
+                toggleEdges(true); // Show lines for others
             }
 
             let o = { physics: false };
@@ -428,70 +436,55 @@
             if (t !== 'Free') network.fit();
         }
 
-        // 🔥 Custom Notion-like Board Layout
+        // Helper to hide/show edges
+        function toggleEdges(visible) {
+            if(!network) return;
+            const edges = network.body.data.edges.get();
+            const updates = edges.map(e => ({ id: e.id, hidden: !visible }));
+            network.body.data.edges.update(updates);
+        }
+
+        // 🔥 Board Layout with Hidden Edges
         function layoutBoard() {
             const nodes = network.body.data.nodes;
             const edges = network.body.data.edges;
-            
-            // 1. Identify Root (ID 1)
-            // 2. Identify Columns (Level 1 nodes connected to Root)
             const rootId = 1;
             const allNodes = nodes.get();
             const allEdges = edges.get();
 
-            // Find columns (children of root)
-            let columns = allNodes.filter(n => {
-                return allEdges.some(e => e.from === rootId && e.to === n.id);
-            });
-            
-            // Sort columns by existing X position to keep order, or by ID
+            let columns = allNodes.filter(n => { return allEdges.some(e => e.from === rootId && e.to === n.id); });
             columns.sort((a,b) => (a.x || 0) - (b.x || 0));
 
-            // Config
             const colWidth = 300;
             const startX = -((columns.length * colWidth) / 2) + (colWidth/2);
             const startY = -200;
             const cardGap = 100;
 
             let updates = [];
-
-            // Position Root (Center Top)
-            updates.push({id: rootId, x: 0, y: startY - 150});
+            updates.push({id: rootId, x: 0, y: startY - 150}); // Root
 
             columns.forEach((col, index) => {
                 const cx = startX + (index * colWidth);
                 const cy = startY;
-                
-                // Position Column Header
-                updates.push({id: col.id, x: cx, y: cy});
+                updates.push({id: col.id, x: cx, y: cy}); // Header
 
-                // Find Cards (children of this column)
-                let cards = allNodes.filter(n => {
-                    return allEdges.some(e => e.from === col.id && e.to === n.id);
-                });
-
-                // Sort cards by Y to keep relative order
+                let cards = allNodes.filter(n => { return allEdges.some(e => e.from === col.id && e.to === n.id); });
                 cards.sort((a,b) => (a.y || 0) - (b.y || 0));
 
                 cards.forEach((card, cIndex) => {
-                    updates.push({
-                        id: card.id,
-                        x: cx,
-                        y: cy + ((cIndex + 1) * cardGap)
-                    });
+                    updates.push({ id: card.id, x: cx, y: cy + ((cIndex + 1) * cardGap) }); // Cards
                 });
             });
 
-            // Apply positions
             nodes.update(updates);
             
-            // Disable physics & hierarchy to keep grid
+            // Disable physics so dragging works nicely
             network.setOptions({
                 physics: false,
                 layout: { hierarchical: { enabled: false } }
             });
             network.fit();
-            showStatus("Board Layout Applied");
+            showStatus("Board Mode: Drag nodes freely");
         }
 
         function toggleTheme() {
@@ -507,16 +500,16 @@
         function saveSession() {
             if(!network) return;
             const d = { text: document.getElementById('inputText').value, nodes: network.body.data.nodes.get(), edges: network.body.data.edges.get(), initialState: initialState };
-            localStorage.setItem('mindMapSessionV1_8', JSON.stringify(d));
+            localStorage.setItem('mindMapSessionV1_9', JSON.stringify(d));
         }
         function restoreSession() {
-            const s = localStorage.getItem('mindMapSessionV1_8');
+            const s = localStorage.getItem('mindMapSessionV1_9');
             if(s) { try { const d = JSON.parse(s); document.getElementById('inputText').value = d.text||""; initialState = d.initialState; drawMap(d.nodes, d.edges); } catch(e){} }
         }
         function saveProject() { if(!network) return; const d = { nodes: network.body.data.nodes.get(), edges: network.body.data.edges.get() }; const b = new Blob([JSON.stringify(d)], {type:"text/json"}); const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = "mindmap.json"; a.click(); }
         function loadProject(e) { const r = new FileReader(); r.onload = function(evt) { const d = JSON.parse(evt.target.result); drawMap(d.nodes, d.edges); }; r.readAsText(e.target.files[0]); }
         async function exportMap(t) { const el = document.getElementById('mynetwork'); const c = await html2canvas(el); const l = document.createElement('a'); l.download = 'mindmap.png'; l.href = c.toDataURL(); l.click(); }
-        async function exportWord() { const el = document.getElementById('mynetwork'); const bg = el.style.backgroundColor; el.style.backgroundColor = "#fff"; const c = await html2canvas(el); const d = c.toDataURL('image/png'); el.style.backgroundColor = bg; const h = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Export</title></head><body><h1>Mind Map</h1><br><img src="${d}" style="width:100%"><br><p>v1.8</p></body></html>`; const b = new Blob(['\ufeff', h], { type: 'application/msword' }); const l = document.createElement('a'); l.href = URL.createObjectURL(b); l.download = 'mindmap.doc'; l.click(); }
+        async function exportWord() { const el = document.getElementById('mynetwork'); const bg = el.style.backgroundColor; el.style.backgroundColor = "#fff"; const c = await html2canvas(el); const d = c.toDataURL('image/png'); el.style.backgroundColor = bg; const h = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Export</title></head><body><h1>Mind Map</h1><br><img src="${d}" style="width:100%"><br><p>v1.9</p></body></html>`; const b = new Blob(['\ufeff', h], { type: 'application/msword' }); const l = document.createElement('a'); l.href = URL.createObjectURL(b); l.download = 'mindmap.doc'; l.click(); }
     </script>
 </body>
 </html>
