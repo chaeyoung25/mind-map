@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Mind Map (v1.3)</title>
+    <title>AI Mind Map (v1.4)</title>
     <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -16,8 +16,11 @@
             --border-color: #D2D2D7;
             --accent-color: #007AFF;
             --danger-color: #FF3B30;
+            --success-color: #34C759;
+            --warning-color: #FF9500;
             --radius: 12px;
             --shadow: 0 4px 12px rgba(0,0,0,0.08);
+            
             --node-root: #FFD1DC;
             --node-keyword: #C1E1C1;
             --node-sentence: #C4DEF6;
@@ -44,31 +47,46 @@
         .btn { padding: 10px; border-radius: 8px; border: none; cursor: pointer; font-weight: 600; font-size: 0.9rem; transition: 0.2s; }
         .btn-primary { background-color: var(--accent-color); color: white; width: 100%; margin-top: 10px; }
         .btn-secondary { background-color: rgba(120, 120, 128, 0.16); color: var(--text-color); font-size: 0.85rem;}
-        .btn-danger { background-color: rgba(255, 59, 48, 0.1); color: var(--danger-color); font-size: 0.85rem; border: 1px solid rgba(255, 59, 48, 0.3); }
-        .btn-danger:hover { background-color: var(--danger-color); color: white; }
-
         .btn-toolbar { display: flex; gap: 5px; margin-bottom: 10px; }
         .btn-toolbar .btn { flex: 1; }
 
         #mynetwork { width: 100%; height: 100%; }
         
-        .map-controls { position: absolute; top: 15px; right: 15px; display: flex; gap: 8px; z-index: 10; flex-wrap: wrap; justify-content: flex-end;}
-        .map-controls button { padding: 8px 12px; font-size: 0.85rem; background: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; color: var(--text-color); box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .map-controls button:hover { background-color: var(--bg-color); }
-        .active-mode { background-color: var(--accent-color) !important; color: white !important; border-color: var(--accent-color) !important; }
-
-        /* 안내 메시지 스타일 */
-        #statusMessage {
-            position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.7); color: white; padding: 8px 20px; border-radius: 20px;
-            font-size: 0.9rem; pointer-events: none; opacity: 0; transition: opacity 0.3s; z-index: 100;
-            backdrop-filter: blur(5px);
+        /* --- Toolbar Styles --- */
+        .map-controls { 
+            position: absolute; top: 15px; right: 15px; left: 15px; 
+            display: flex; justify-content: space-between; pointer-events: none; z-index: 10;
+        }
+        
+        .control-group { 
+            pointer-events: auto; display: flex; gap: 8px; background: var(--panel-bg); 
+            padding: 5px; border-radius: 10px; border: 1px solid var(--border-color); box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            flex-wrap: wrap;
         }
 
-        #contextMenu { display: none; position: absolute; z-index: 1000; width: 180px; background-color: var(--panel-bg); border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); border: 1px solid var(--border-color); overflow: hidden; }
-        #contextMenu ul { list-style: none; padding: 0; margin: 0; }
-        #contextMenu li { padding: 10px 15px; cursor: pointer; font-size: 0.9rem; border-bottom: 1px solid var(--border-color); color: var(--text-color); }
-        #contextMenu li:hover { background-color: var(--accent-color); color: white; }
+        .control-group button { 
+            padding: 8px 12px; font-size: 0.85rem; background: transparent; border: none; 
+            border-radius: 6px; cursor: pointer; color: var(--text-color); transition: 0.2s;
+        }
+        .control-group button:hover { background-color: rgba(120, 120, 128, 0.1); }
+        
+        /* Context Toolbar (Hidden by default) */
+        #contextToolbar { display: none; border-color: var(--accent-color); background-color: rgba(0, 122, 255, 0.05); backdrop-filter: blur(10px); }
+        #edgeToolbar { display: none; border-color: var(--warning-color); }
+
+        /* Action Buttons */
+        .btn-add { color: var(--accent-color) !important; font-weight: bold; }
+        .btn-move { color: var(--warning-color) !important; font-weight: bold; }
+        .btn-connect { color: var(--success-color) !important; font-weight: bold; }
+        .btn-delete { color: var(--danger-color) !important; font-weight: bold; }
+
+        /* Status Message */
+        #statusMessage {
+            position: absolute; top: 70px; left: 50%; transform: translateX(-50%);
+            background: var(--accent-color); color: white; padding: 8px 24px; border-radius: 20px;
+            font-size: 0.9rem; font-weight: bold; box-shadow: 0 4px 15px rgba(0,122,255,0.3);
+            pointer-events: none; opacity: 0; transition: opacity 0.3s; z-index: 100;
+        }
 
         .version-tag { font-size: 0.75rem; color: var(--text-color); opacity: 0.5; margin-top: 10px; text-align: right; }
     </style>
@@ -98,46 +116,44 @@
 
             <div style="margin-top:auto;">
                 <p style="font-size:0.8rem; opacity:0.6; line-height:1.4; margin-bottom:0;">
-                    * <b>Double Click:</b> Edit Text<br>
+                    * <b>Click Node:</b> Show Tools (Add, Move, Edit)<br>
                     * <b>Auto-Save:</b> Enabled
                 </p>
-                <div class="version-tag">Version 1.3</div>
+                <div class="version-tag">Version 1.4</div>
             </div>
         </div>
 
         <div class="map-panel panel">
-            <div id="statusMessage">Ready</div>
+            <div id="statusMessage">Action Active</div>
 
             <div class="map-controls">
-                <button onclick="undo()" title="Undo">↩️ Undo</button>
-                <button onclick="resetMap()" class="btn-danger" title="Reset">🔄 Reset</button>
-                
-                <span style="width:1px; background:var(--border-color); margin:0 5px;"></span>
-                
-                <button onclick="setLayout('UD')">🌳 Tree</button>
-                <button onclick="setLayout('LR')">🧱 Block</button>
-                <button onclick="setLayout('Free')">✨ Free</button>
-                
-                <span style="width:1px; background:var(--border-color); margin:0 5px;"></span>
-                
-                <button id="btnMoveMode" onclick="toggleMoveMode()">🚀 Move</button>
-                <button id="btnEditMode" onclick="toggleEditMode()">✏️ Edit</button>
-                
-                <span style="width:1px; background:var(--border-color); margin:0 5px;"></span>
-                
-                <button onclick="exportMap('png')">📷 IMG</button>
-                <button onclick="exportWord()">📝 Word</button>
+                <div style="display:flex; gap:10px;">
+                    <div id="contextToolbar" class="control-group">
+                        <button class="btn-add" onclick="addChildNode()">➕ Add Child</button>
+                        <button onclick="editNodeText()">✏️ Edit Text</button>
+                        <button class="btn-move" onclick="startMove()">🚀 Move</button>
+                        <button class="btn-connect" onclick="startConnect()">🔗 Connect</button>
+                        <button class="btn-delete" onclick="deleteSelected()">🗑 Delete</button>
+                    </div>
+                    <div id="edgeToolbar" class="control-group">
+                        <button class="btn-delete" onclick="deleteSelectedEdge()">❌ Delete Line</button>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <button onclick="undo()" title="Undo">↩️</button>
+                    <button onclick="resetMap()" title="Reset" style="color:var(--danger-color)">🔄</button>
+                    <span style="width:1px; background:var(--border-color); margin:0 5px;"></span>
+                    <button onclick="setLayout('UD')">🌳</button>
+                    <button onclick="setLayout('LR')">🧱</button>
+                    <button onclick="setLayout('Free')">✨</button>
+                    <span style="width:1px; background:var(--border-color); margin:0 5px;"></span>
+                    <button onclick="exportMap('png')">📷</button>
+                    <button onclick="exportWord()">📝</button>
+                </div>
             </div>
 
             <div id="mynetwork"></div>
-
-            <div id="contextMenu">
-                <ul>
-                    <li onclick="menuAction('add')">➕ Add Child</li>
-                    <li onclick="menuAction('edit')">✏️ Edit Text</li>
-                    <li onclick="menuAction('delete')" style="color:var(--danger-color)">🗑 Delete</li>
-                </ul>
-            </div>
         </div>
     </div>
 
@@ -145,12 +161,9 @@
         let network = null;
         let isDarkMode = false;
         
-        // Modes
-        let isEditMode = false;
-        let isMoveMode = false;
-        
-        let selectedNodeId = null;
-        let moveSourceId = null; // 이동할 노드 ID
+        // State variables for actions
+        let currentAction = null; // 'move' or 'connect'
+        let actionSourceId = null; 
         
         let historyStack = [];
         let initialState = null;
@@ -159,8 +172,13 @@
         window.onload = function() {
             if(localStorage.getItem('theme') === 'dark') toggleTheme();
             restoreSession();
-            document.addEventListener('click', function(e) {
-                if (!e.target.closest('#contextMenu')) document.getElementById('contextMenu').style.display = 'none';
+            
+            // Global key listener for delete
+            document.addEventListener('keydown', function(e) {
+                if(e.key === 'Delete' || e.key === 'Backspace') {
+                    if(network.getSelectedNodes().length > 0) deleteSelected();
+                    if(network.getSelectedEdges().length > 0) deleteSelectedEdge();
+                }
             });
         };
 
@@ -175,11 +193,8 @@
         function undo() {
             if(historyStack.length === 0) { showStatus("Nothing to undo"); return; }
             const prevState = JSON.parse(historyStack.pop());
-            const nodes = new vis.DataSet(prevState.nodes);
-            const edges = new vis.DataSet(prevState.edges);
-            network.setData({nodes: nodes, edges: edges});
+            network.setData({nodes: new vis.DataSet(prevState.nodes), edges: new vis.DataSet(prevState.edges)});
             saveSession();
-            showStatus("Undo successful");
         }
 
         function resetMap() {
@@ -192,7 +207,7 @@
             }
         }
 
-        // --- 2. Main Logic ---
+        // --- 2. Main Generation Logic ---
         function processData() {
             const text = document.getElementById('inputText').value;
             const keywordsRaw = document.getElementById('keywords').value;
@@ -223,7 +238,6 @@
                 const kwId = nodeId++;
                 nodes.push({id: kwId, label: kw, color: colKw, shape:'ellipse', font:{size:16}});
                 edges.push({from: 1, to: kwId});
-                
                 let count = 0;
                 sentences.forEach(s => {
                     if(s.includes(kw) && count < 3) {
@@ -251,155 +265,174 @@
                 edges: { color: '#B0B0B0', width: 2, smooth: { type: 'cubicBezier' } },
                 layout: { hierarchical: { enabled: true, direction: "UD", sortMethod: "hubsize", levelSeparation: 150 } },
                 physics: false,
-                manipulation: {
-                    enabled: false,
-                    addEdge: function(data, callback) { saveHistory(); callback(data); },
-                    deleteNode: function(data, callback) { saveHistory(); callback(data); },
-                    deleteEdge: function(data, callback) { saveHistory(); callback(data); },
-                    editNode: function(data, callback) { saveHistory(); callback(data); }
-                }
+                interaction: { hover: true, selectConnectedEdges: false }
             };
 
             network = new vis.Network(container, data, options);
 
-            // Double Click -> Edit Text / Menu
-            network.on("doubleClick", function(params) {
-                if (params.nodes.length > 0) {
-                    selectedNodeId = params.nodes[0];
-                    const pos = params.pointer.DOM;
-                    const menu = document.getElementById('contextMenu');
-                    menu.style.display = 'block';
-                    menu.style.left = pos.x + 'px';
-                    menu.style.top = pos.y + 'px';
+            // --- Event Listeners for Interaction ---
+            
+            // 1. Selection: Show Toolbars
+            network.on("selectNode", function(params) {
+                if(currentAction) return; // Don't show menu if we are in the middle of moving/connecting
+                document.getElementById('contextToolbar').style.display = 'flex';
+                document.getElementById('edgeToolbar').style.display = 'none';
+            });
+            
+            network.on("selectEdge", function(params) {
+                if(params.nodes.length === 0) { // Only show edge tools if no node is selected
+                    document.getElementById('edgeToolbar').style.display = 'flex';
+                    document.getElementById('contextToolbar').style.display = 'none';
                 }
             });
 
-            // Click Handler for Move Logic
-            network.on("click", function(params) {
-                // If Move Mode is active
-                if(isMoveMode) {
-                    if(params.nodes.length > 0) {
-                        const clickedId = params.nodes[0];
-                        
-                        // Step 1: Select Source
-                        if(moveSourceId === null) {
-                            moveSourceId = clickedId;
-                            // Visual Feedback
-                            network.body.data.nodes.update({id: clickedId, borderWidth: 3, color: {border:'#FF3B30'}});
-                            showStatus("👉 Now click the NEW PARENT node.");
-                        } 
-                        // Step 2: Select Target (Parent)
-                        else {
-                            if(clickedId !== moveSourceId) {
-                                executeMove(moveSourceId, clickedId);
-                            } else {
-                                // Cancel if clicked same node
-                                network.body.data.nodes.update({id: moveSourceId, borderWidth: 0});
-                                moveSourceId = null;
-                                showStatus("Cancelled. Select node to move again.");
-                            }
-                        }
-                    }
-                }
+            network.on("deselectNode", function(params) {
+                document.getElementById('contextToolbar').style.display = 'none';
             });
             
+            network.on("deselectEdge", function(params) {
+                document.getElementById('edgeToolbar').style.display = 'none';
+            });
+
+            // 2. Click Logic for Actions (Move / Connect)
+            network.on("click", function(params) {
+                // If we are waiting for a target (Move or Connect)
+                if (currentAction && params.nodes.length > 0) {
+                    const targetId = params.nodes[0];
+                    if (targetId !== actionSourceId) {
+                        if (currentAction === 'move') finalizeMove(actionSourceId, targetId);
+                        else if (currentAction === 'connect') finalizeConnect(actionSourceId, targetId);
+                    }
+                } 
+                // If clicking empty space, cancel actions
+                else if (params.nodes.length === 0) {
+                    cancelAction();
+                }
+            });
+
+            network.on("doubleClick", function(params) {
+                if(params.nodes.length > 0) editNodeText();
+            });
+
             network.on("dragEnd", () => saveSession());
         }
 
-        // --- 3. Move Logic (The new feature) ---
-        function toggleMoveMode() {
-            // Turn off Edit Mode if on
-            if(isEditMode) toggleEditMode(); 
+        // --- 3. Context Action Functions ---
 
-            isMoveMode = !isMoveMode;
-            const btn = document.getElementById('btnMoveMode');
-            moveSourceId = null;
+        function getSelectedNode() {
+            const ids = network.getSelectedNodes();
+            return ids.length > 0 ? ids[0] : null;
+        }
 
-            if(isMoveMode) {
-                btn.classList.add("active-mode");
-                btn.innerText = "🚀 Cancel Move";
-                showStatus("Select the node you want to MOVE.");
-                document.body.style.cursor = "crosshair";
-            } else {
-                btn.classList.remove("active-mode");
-                btn.innerText = "🚀 Move";
-                showStatus("Ready");
-                document.body.style.cursor = "default";
-                // Reset styles if any selected
-                if(network) network.redraw();
+        function addChildNode() {
+            const parentId = getSelectedNode();
+            if(!parentId) return;
+            const label = prompt("New Node Name:");
+            if(label) {
+                saveHistory();
+                const newId = Date.now();
+                const style = getComputedStyle(document.documentElement);
+                network.body.data.nodes.add({id: newId, label: label, shape:'box', color: style.getPropertyValue('--node-sentence').trim()});
+                network.body.data.edges.add({from: parentId, to: newId});
+                saveSession();
             }
         }
 
-        function executeMove(source, target) {
-            saveHistory(); // Save before change
-            
-            const edges = network.body.data.edges;
-            const nodes = network.body.data.nodes;
+        function editNodeText() {
+            const id = getSelectedNode();
+            if(!id) return;
+            const node = network.body.data.nodes.get(id);
+            const newLabel = prompt("Edit Text:", node.label);
+            if(newLabel !== null) {
+                saveHistory();
+                network.body.data.nodes.update({id: id, label: newLabel});
+                saveSession();
+            }
+        }
 
-            // 1. Remove old parent link
+        function deleteSelected() {
+            const id = getSelectedNode();
+            if(!id) return;
+            saveHistory();
+            network.body.data.nodes.remove(id); // Vis.js auto-removes connected edges
+            document.getElementById('contextToolbar').style.display = 'none';
+            saveSession();
+        }
+
+        function deleteSelectedEdge() {
+            const edges = network.getSelectedEdges();
+            if(edges.length === 0) return;
+            saveHistory();
+            network.body.data.edges.remove(edges);
+            document.getElementById('edgeToolbar').style.display = 'none';
+            saveSession();
+        }
+
+        // --- 4. Move & Connect Logic ---
+
+        function startMove() {
+            const id = getSelectedNode();
+            if(!id) return;
+            currentAction = 'move';
+            actionSourceId = id;
+            showStatus("👉 Select a NEW PARENT node");
+            document.body.style.cursor = "alias";
+            // Highlight source
+            network.body.data.nodes.update({id: id, borderWidth: 3, color: {border:'#FF9500'}});
+        }
+
+        function finalizeMove(source, target) {
+            saveHistory();
+            const edges = network.body.data.edges;
+            // Remove old parent edges (where 'to' is source)
             const connected = network.getConnectedEdges(source);
             connected.forEach(eid => {
                 const edge = edges.get(eid);
                 if(edge.to === source) edges.remove(eid);
             });
-
-            // 2. Add new parent link
+            // Add new edge
             edges.add({from: target, to: source});
-
-            // 3. Reset Styles
-            nodes.update({id: source, borderWidth: 0, color: null}); // Reset border
-            nodes.update({id: source, borderWidth: 0}); // Force update
-
-            // 4. Finish Move Mode
-            toggleMoveMode(); // Turn off mode
-            showStatus("Moved successfully!");
-            saveSession();
+            finishAction(source);
+            showStatus("Moved!");
         }
 
-        // --- 4. Other Utilities ---
-        function menuAction(action) {
+        function startConnect() {
+            const id = getSelectedNode();
+            if(!id) return;
+            currentAction = 'connect';
+            actionSourceId = id;
+            showStatus("👉 Select node to CONNECT");
+            document.body.style.cursor = "cell";
+            network.body.data.nodes.update({id: id, borderWidth: 3, color: {border:'#34C759'}});
+        }
+
+        function finalizeConnect(source, target) {
             saveHistory();
-            document.getElementById('contextMenu').style.display = 'none';
-            const nodes = network.body.data.nodes;
-            const edges = network.body.data.edges;
+            network.body.data.edges.add({from: source, to: target});
+            finishAction(source);
+            showStatus("Connected!");
+        }
 
-            if(action === 'delete') nodes.remove(selectedNodeId);
-            else if(action === 'edit') {
-                const newLabel = prompt("Edit Text:", nodes.get(selectedNodeId).label);
-                if(newLabel) nodes.update({id: selectedNodeId, label: newLabel});
-            }
-            else if(action === 'add') {
-                const label = prompt("Child Node Name:");
-                if(label) {
-                    const newId = Date.now();
-                    const style = getComputedStyle(document.documentElement);
-                    nodes.add({id: newId, label: label, shape:'box', color: style.getPropertyValue('--node-sentence').trim()});
-                    edges.add({from: selectedNodeId, to: newId});
-                }
-            }
+        function finishAction(sourceId) {
+            network.body.data.nodes.update({id: sourceId, borderWidth: 0, color: null});
+            network.body.data.nodes.update({id: sourceId, borderWidth: 0}); // reset
+            currentAction = null;
+            actionSourceId = null;
+            document.body.style.cursor = "default";
             saveSession();
         }
 
-        function toggleEditMode() {
-            if(isMoveMode) toggleMoveMode(); // Turn off Move Mode first
-
-            isEditMode = !isEditMode;
-            const btn = document.getElementById('btnEditMode');
-            if(isEditMode) {
-                btn.innerText = "✏️ Stop Edit";
-                btn.classList.add("active-mode");
-                network.setOptions({ manipulation: { enabled: true } });
-                network.addEdgeMode();
-                showStatus("Draw lines to connect nodes.");
-            } else {
-                btn.innerText = "✏️ Edit";
-                btn.classList.remove("active-mode");
-                network.setOptions({ manipulation: { enabled: false } });
-                network.disableEditMode();
-                showStatus("Ready");
+        function cancelAction() {
+            if (actionSourceId) {
+                network.body.data.nodes.update({id: actionSourceId, borderWidth: 0});
             }
+            currentAction = null;
+            actionSourceId = null;
+            document.body.style.cursor = "default";
+            showStatus("");
         }
 
+        // --- 5. Utilities ---
         function setLayout(type) {
             saveHistory();
             if(!network) return;
@@ -420,8 +453,8 @@
         function showStatus(msg) {
             const el = document.getElementById('statusMessage');
             el.innerText = msg;
-            el.style.opacity = 1;
-            setTimeout(() => el.style.opacity = 0, 3000);
+            el.style.opacity = msg ? 1 : 0;
+            if(msg) setTimeout(() => el.style.opacity = 0, 3000);
         }
 
         function saveSession() {
@@ -432,11 +465,11 @@
                 edges: network.body.data.edges.get(),
                 initialState: initialState 
             };
-            localStorage.setItem('mindMapSessionV1_3', JSON.stringify(d));
+            localStorage.setItem('mindMapSessionV1_4', JSON.stringify(d));
         }
 
         function restoreSession() {
-            const s = localStorage.getItem('mindMapSessionV1_3');
+            const s = localStorage.getItem('mindMapSessionV1_4');
             if(s) { try { const d = JSON.parse(s); document.getElementById('inputText').value = d.text||""; initialState = d.initialState; drawMap(d.nodes, d.edges); } catch(e){} }
         }
 
@@ -446,12 +479,10 @@
         async function exportMap(type) {
             const el = document.getElementById('mynetwork');
             const canvas = await html2canvas(el);
-            if(type==='png') {
-                const link = document.createElement('a');
-                link.download = 'mindmap.png';
-                link.href = canvas.toDataURL();
-                link.click();
-            }
+            const link = document.createElement('a');
+            link.download = 'mindmap.png';
+            link.href = canvas.toDataURL();
+            link.click();
         }
 
         async function exportWord() {
@@ -465,7 +496,7 @@
             const htmlContent = `
                 <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
                 <head><meta charset='utf-8'><title>Mind Map Export</title></head>
-                <body><h1>Mind Map Report</h1><br><img src="${imgData}" style="width:100%;"><br><br><p>Generated by AI Mind Map v1.3</p></body></html>
+                <body><h1>Mind Map Report</h1><br><img src="${imgData}" style="width:100%;"><br><br><p>Generated by AI Mind Map v1.4</p></body></html>
             `;
             const blob = new Blob(['\ufeff', htmlContent], { type: 'application/msword' });
             const link = document.createElement('a');
