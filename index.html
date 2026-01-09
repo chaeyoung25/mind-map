@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Mind Map (v3.3)</title>
+    <title>AI Mind Map (v3.4)</title>
     <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -142,10 +142,10 @@
 
             <div style="margin-top:auto;">
                 <p style="font-size:0.75rem; opacity:0.6; line-height:1.5; margin-bottom:0;">
-                    * <b>Free Move:</b> Drag Up to promote, Down to demote.<br>
-                    * <b>Board:</b> Auto-aligns rows & columns.
+                    * <b>Multi-Select:</b> Ctrl+Click / Drag<br>
+                    * <b>Structure:</b> Infinite Nested Levels.
                 </p>
-                <div class="version-tag">Version 3.3</div>
+                <div class="version-tag">Version 3.4</div>
             </div>
         </div>
 
@@ -199,7 +199,8 @@
         const BOARD_CONFIG = {
             colWidth: 230,   
             cardGap: 85,    
-            headerY: -250 
+            headerY: -250,
+            indent: 20 // Indentation for sub-levels
         };
 
         window.onload = function() {
@@ -226,7 +227,6 @@
             isRestoring = true;
             const prevStateJSON = historyStack.pop();
             const prevState = JSON.parse(prevStateJSON);
-            
             network.setData({
                 nodes: new vis.DataSet(prevState.nodes), 
                 edges: new vis.DataSet(prevState.edges)
@@ -347,7 +347,7 @@
 
             network.on("doubleClick", (params) => { if(params.nodes.length > 0) editNodeText(); });
             
-            // 🔥 V3.3 UNIVERSAL DRAG & DROP LOGIC (Optimized for Upward Mobility) 🔥
+            // 🔥 V3.4 INFINITE DEPTH DRAG LOGIC 🔥
             network.on("dragEnd", function (params) {
                 if (!isBoardMode || params.nodes.length === 0) {
                     saveSession();
@@ -363,11 +363,11 @@
                 const dragHeadId = selectedIds[0];
                 const headPos = network.getPositions([dragHeadId])[dragHeadId];
                 
-                // Identify columns
                 const allNodes = nodesDS.get();
                 const allEdges = edgesDS.get();
-                let columns = allNodes.filter(n => n.level === 1);
                 
+                // Determine Columns (Level 1)
+                let columns = allNodes.filter(n => n.level === 1);
                 columns.sort((a,b) => (a.x || 0) - (b.x || 0));
 
                 let targetCol = null;
@@ -385,15 +385,13 @@
                     nodesDS.update({ id: nodeId, x: pos.x, y: pos.y });
 
                     // -- LOGIC: PROMOTION --
-                    // If dragged to "Middle Group" height (near headerY)
-                    // We relaxed the buffer to +50 to make it easier to drop "into" the row
                     if (pos.y < BOARD_CONFIG.headerY + 50) {
-                        nodesDS.update({id: nodeId, level: 1}); 
+                        updateSubtreeLevels(nodeId, 1, nodesDS, edgesDS); // Make it Level 1
                         reParentNode(nodeId, rootId, edgesDS); 
                     }
-                    // -- LOGIC: DEMOTION --
+                    // -- LOGIC: DEMOTION / MOVE --
                     else if (targetCol && targetCol.id !== nodeId) {
-                        nodesDS.update({id: nodeId, level: 2}); 
+                        updateSubtreeLevels(nodeId, 2, nodesDS, edgesDS); // Base Level 2
                         reParentNode(nodeId, targetCol.id, edgesDS); 
                     }
                 });
@@ -403,22 +401,30 @@
             });
         }
 
-        // Helper: Cleanly switch parents
+        // 🔥 RECURSIVE LEVEL UPDATE FOR INFINITE DEPTH 🔥
+        function updateSubtreeLevels(rootId, newBaseLevel, nodesDS, edgesDS) {
+            // Update root
+            nodesDS.update({id: rootId, level: newBaseLevel});
+            
+            // Find children and update them to (newBaseLevel + 1)
+            const allEdges = edgesDS.get();
+            const children = allEdges.filter(e => e.from === rootId).map(e => e.to);
+            
+            children.forEach(childId => {
+                updateSubtreeLevels(childId, newBaseLevel + 1, nodesDS, edgesDS);
+            });
+        }
+
         function reParentNode(childId, newParentId, edgesDS) {
             if (childId === 1 || childId === newParentId) return;
-
-            // Check for existing connection
             const allEdges = edgesDS.get();
             const connectedEdges = network.getConnectedEdges(childId);
             const parentEdge = allEdges.find(e => e.to === childId && connectedEdges.includes(e.id));
             
-            // Avoid cycles (if dragging parent into child) - simple check
-            // (omitted for brevity, assume user knows what they are doing in v3.3)
-
             if (parentEdge) {
                 if (parentEdge.from !== newParentId) {
-                    edgesDS.remove(parentEdge.id); // Cut old tie
-                    edgesDS.add({from: newParentId, to: childId, hidden: true}); // Form new tie
+                    edgesDS.remove(parentEdge.id);
+                    edgesDS.add({from: newParentId, to: childId, hidden: true});
                 }
             } else {
                 edgesDS.add({from: newParentId, to: childId, hidden: true});
@@ -436,7 +442,7 @@
                 const nid = Date.now();
                 const style = getComputedStyle(document.documentElement);
                 const parentNode = network.body.data.nodes.get(pid);
-                const newLevel = (parentNode.level || 0) + 1;
+                const newLevel = (parentNode.level || 0) + 1; // Infinite nesting support
                 
                 network.body.data.nodes.add({id: nid, label: l, shape:'box', color: style.getPropertyValue('--node-sentence').trim(), font:{color:'#333'}, level: newLevel});
                 network.body.data.edges.add({from: pid, to: nid, hidden: isBoardMode});
@@ -538,6 +544,7 @@
             network.body.data.edges.update(updates);
         }
 
+        // 🔥 V3.4 RECURSIVE BOARD LAYOUT WITH INDENTATION 🔥
         function layoutBoard() {
             const nodes = network.body.data.nodes;
             const edges = network.body.data.edges;
@@ -545,9 +552,7 @@
             const allNodes = nodes.get();
             const allEdges = edges.get();
 
-            // Find Middle Groups (Level 1)
             let columns = allNodes.filter(n => n.level === 1);
-            
             columns = [...new Set(columns)];
             columns.sort((a,b) => (a.x || 0) - (b.x || 0));
 
@@ -562,30 +567,32 @@
                 
                 updates.push({ id: col.id, x: cx, y: cy });
 
-                let stack = [];
-                function collect(parentId) {
+                // Recursive collector for infinite depth
+                let currentY = cy + BOARD_CONFIG.cardGap; // Start placing cards below header
+
+                function placeDescendants(parentId, depth) {
                     let children = allNodes.filter(n => allEdges.some(e => e.from === parentId && e.to === n.id));
                     children.sort((a,b) => (a.y || 0) - (b.y || 0));
+                    
                     children.forEach(child => {
-                        stack.push(child);
-                        collect(child.id);
+                        updates.push({
+                            id: child.id,
+                            x: cx + (depth * BOARD_CONFIG.indent), // Visual Indentation
+                            y: currentY
+                        });
+                        currentY += BOARD_CONFIG.cardGap; // Move down for next card
+                        
+                        placeDescendants(child.id, depth + 1); // Recurse
                     });
                 }
-                collect(col.id);
-
-                stack.forEach((card, rIdx) => {
-                    updates.push({
-                        id: card.id,
-                        x: cx,
-                        y: cy + BOARD_CONFIG.cardGap + (rIdx * BOARD_CONFIG.cardGap)
-                    });
-                });
+                
+                placeDescendants(col.id, 0);
             });
 
             nodes.update(updates);
             network.setOptions({ physics: false, layout: { hierarchical: { enabled: false } } });
             network.fit();
-            showStatus("Board Aligned");
+            showStatus("Board Aligned (Deep)");
         }
 
         function toggleTheme() {
@@ -601,16 +608,16 @@
         function saveSession() {
             if(!network) return;
             const d = { text: document.getElementById('inputText').value, nodes: network.body.data.nodes.get(), edges: network.body.data.edges.get(), initialState: initialState };
-            localStorage.setItem('mindMapSessionV3_3', JSON.stringify(d));
+            localStorage.setItem('mindMapSessionV3_4', JSON.stringify(d));
         }
         function restoreSession() {
-            const s = localStorage.getItem('mindMapSessionV3_3');
+            const s = localStorage.getItem('mindMapSessionV3_4');
             if(s) { try { const d = JSON.parse(s); document.getElementById('inputText').value = d.text||""; initialState = d.initialState; drawMap(d.nodes, d.edges); } catch(e){} }
         }
         function saveProject() { if(!network) return; const d = { nodes: network.body.data.nodes.get(), edges: network.body.data.edges.get() }; const b = new Blob([JSON.stringify(d)], {type:"text/json"}); const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = "mindmap.json"; a.click(); }
         function loadProject(e) { const r = new FileReader(); r.onload = function(evt) { const d = JSON.parse(evt.target.result); drawMap(d.nodes, d.edges); }; r.readAsText(e.target.files[0]); }
         async function exportMap(t) { const el = document.getElementById('mynetwork'); const c = await html2canvas(el); const l = document.createElement('a'); l.download = 'mindmap.png'; l.href = c.toDataURL(); l.click(); }
-        async function exportWord() { const el = document.getElementById('mynetwork'); const bg = el.style.backgroundColor; el.style.backgroundColor = "#fff"; const c = await html2canvas(el); const d = c.toDataURL('image/png'); el.style.backgroundColor = bg; const h = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Export</title></head><body><h1>Mind Map</h1><br><img src="${d}" style="width:100%"><br><p>v3.3</p></body></html>`; const b = new Blob(['\ufeff', h], { type: 'application/msword' }); const l = document.createElement('a'); l.href = URL.createObjectURL(b); l.download = 'mindmap.doc'; l.click(); }
+        async function exportWord() { const el = document.getElementById('mynetwork'); const bg = el.style.backgroundColor; el.style.backgroundColor = "#fff"; const c = await html2canvas(el); const d = c.toDataURL('image/png'); el.style.backgroundColor = bg; const h = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Export</title></head><body><h1>Mind Map</h1><br><img src="${d}" style="width:100%"><br><p>v3.4</p></body></html>`; const b = new Blob(['\ufeff', h], { type: 'application/msword' }); const l = document.createElement('a'); l.href = URL.createObjectURL(b); l.download = 'mindmap.doc'; l.click(); }
     </script>
 </body>
 </html>
